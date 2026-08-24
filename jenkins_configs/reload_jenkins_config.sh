@@ -43,7 +43,15 @@ echo "=== Reloading JCasC configuration ==="
 CRUMB=$(curl -s "${AUTH[@]}" \
   "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)")
 
-curl -s "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/configuration-as-code/reload"
-
-echo ""
+STATUS=$(curl -s -o /tmp/reload_response.html -w '%{http_code}' \
+  "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/configuration-as-code/reload")
+ 
+if [ "${STATUS}" != "200" ]; then
+  echo "❌ Reload failed (HTTP ${STATUS})"
+  cat /tmp/reload_response.html
+  rm -f /tmp/reload_response.html
+  exit 1
+fi
+rm -f /tmp/reload_response.html
+ 
 echo "✅ Configuration reloaded."

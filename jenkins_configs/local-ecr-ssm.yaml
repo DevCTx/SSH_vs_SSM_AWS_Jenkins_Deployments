@@ -3,6 +3,11 @@ jenkins:
   # Controller orchestrates only, never builds. Jobs run on separate agents.
   numExecutors: 0
 
+  # Avoids CSRF token errors when reloading the config via script through Docker
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+      
   # Authentication via DEFINED ADMIN user only (No LDAP or SSO)
   securityRealm:
     local:

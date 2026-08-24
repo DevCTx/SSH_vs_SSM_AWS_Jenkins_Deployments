@@ -52,35 +52,42 @@ fi
 
 ####################################################################################################
 # PREREQUISITES : Verify Docker, Compose and Buildx on the host 
+# Set as block to be able to run it as root privilege (needed for docker.pgp and docker deamon)
 ####################################################################################################
 command -v docker >/dev/null || {
-  if [ -f /etc/debian_version ]; then
-    apt-get update
-    apt-get install -y ca-certificates curl gnupg
-    
-    # Download the docker key to let the system accept to add a new docker repository source
-    # because the standard Ubuntu/Debian package (docker.io) is often outdated and does not 
-    # reliably include the Compose v2/Buildx plugins that the script requires, 
-    # unlike the official Docker repository.
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-      | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-    https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo ${UBUNTU_CODENAME}) stable" \
-      > /etc/apt/sources.list.d/docker.list
-
-    apt-get update
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  else
-    # Contrary to Debian/Ubuntu, AL2023 maintains its own docker package at a reasonably up-to-date version
-    yum install -y yum-utils
-    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-    yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  fi
-}
+  echo ""
+  echo "Docker is not installed — installing it needs root privileges,"
+  echo "you'll be asked for your sudo password once for this step."
+  sudo bash <<'INSTALL_DOCKER'
+set -e
+if [ -f /etc/debian_version ]; then
+  apt-get update
+  apt-get install -y ca-certificates curl gnupg
+ 
+  # Download the docker key to let the system accept to add a new docker repository source
+  # because the standard Ubuntu/Debian package (docker.io) is often outdated and does not 
+  # reliably include the Compose v2/Buildx plugins that the script requires, 
+  # unlike the official Docker repository.
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  chmod a+r /etc/apt/keyrings/docker.gpg
+ 
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo ${UBUNTU_CODENAME}) stable" \
+    > /etc/apt/sources.list.d/docker.list
+ 
+  apt-get update
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+else
+  # Contrary to Debian/Ubuntu, AL2023 maintains its own docker package at a reasonably up-to-date version
+  yum install -y yum-utils
+  yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
 systemctl enable --now docker
+INSTALL_DOCKER
+}
 
 set_env DOCKER_GID "$(stat -c '%g' /var/run/docker.sock)"
 set_env JENKINS_INGRESS_IP "$(hostname -I | awk '{print $1}')"
@@ -95,9 +102,9 @@ set_env JENKINS_INGRESS_IP "$(hostname -I | awk '{print $1}')"
 
 # separated to be sure that the build of base-agent finishs 
 # before the start of the others who depend of it
-docker compose build base-agent
-docker compose build maven-agent
-docker compose build docker-aws-agent
+sudo docker compose --env-file ../.env build base-agent
+sudo docker compose --env-file ../.env build maven-agent
+sudo docker compose --env-file ../.env build docker-aws-agent
 
 
 ####################################################################################################
@@ -107,7 +114,7 @@ docker compose build docker-aws-agent
 test_agent () {
   echo ""
   echo "=== Testing $1 ==="
-  docker run --rm --entrypoint bash "${@:3}" "$1" -c "$2"
+  sudo docker run --rm --entrypoint bash "${@:3}" "$1" -c "$2"
 }
 
 test_agent jenkins-base-agent  "java -version && git --version"
@@ -125,7 +132,7 @@ test_agent jenkins-docker-aws-agent "docker --version && aws --version" -v /var/
 # Jenkins has any pipeline — this script only brings up the empty core.
 # The configuration jenkins-config.yaml needs to be copied from a desired configs/*.yaml before
 ####################################################################################################
-docker compose up -d --build controller
+sudo docker compose --env-file ../.env up -d --build controller
 echo "Waiting 15s for the Jenkins controller to start..."
 sleep 15
 
@@ -136,7 +143,7 @@ echo "  Login : ${JENKINS_ADMIN_USER} / ${JENKINS_ADMIN_PASSWORD}"
 echo ""
 echo "  Next steps:"
 echo "  1. Set the GitHub Webhook (with a Cloudflare tunnel automatically)"
-echo "     ./setup_github_webhook.sh"
+echo "     ./jenkins_install/setup_github_webhook.sh"
 echo "  2. Load the desired configuration and enable its pipeline(s)"
 echo "     ../jenkins_configs/reload_jenkins_config.sh <config-name>.yaml"
 echo "=================================================="

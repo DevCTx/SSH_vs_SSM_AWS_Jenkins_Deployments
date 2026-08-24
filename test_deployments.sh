@@ -38,6 +38,20 @@ else
 fi
 
 ####################################################################################################
+# Load the matching pipeline config BEFORE triggering the webhook
+####################################################################################################
+if [ "${REGISTRY}" = "dockerhub" ] && [ "${TRANSPORT}" = "ssh" ]; then
+  CONFIG_NAME="any-dockerhub-ssh"
+elif [ -n "${JENKINS_EC2_ID:-}" ]; then
+  CONFIG_NAME="aws-${REGISTRY}-${TRANSPORT}"
+else
+  CONFIG_NAME="local-${REGISTRY}-${TRANSPORT}"
+fi
+ 
+echo "=== Loading config: ${CONFIG_NAME}.yaml ==="
+./jenkins_configs/reload_jenkins_config.sh "${CONFIG_NAME}.yaml"
+
+####################################################################################################
 # Get the lastest tag pushed on ECR or DockerHub
 ####################################################################################################
 get_latest_tag() {

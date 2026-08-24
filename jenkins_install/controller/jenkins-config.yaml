@@ -3,11 +3,6 @@ jenkins:
   # Controller orchestrates only, never builds. Jobs run on separate agents.
   numExecutors: 0
 
-  # Avoids CSRF token errors when reloading the config via script through Docker
-  crumbIssuer:
-    standard:
-      excludeClientIPFromCrumb: true
-
   # Authentication via DEFINED ADMIN user only (No LDAP or SSO)
   securityRealm:
     local:
@@ -49,7 +44,6 @@ jenkins:
             pullStrategy: PULL_NEVER
             instanceCapStr: "2"
 
-          # docker-aws-agent, not docker-lite: both ECR push and SSM deploy need the AWS CLI
           - labelString: "docker-aws-agent"
             dockerTemplateBase:
               image: "jenkins-docker-aws-agent"
@@ -72,17 +66,19 @@ credentials:
               username: "${GITHUB_OWNER}"
               password: "${GITHUB_JENKINS_TOKEN}"
 
-          # No AWS credential here: Jenkins runs ON AWS, its instance IAM role
-          # (ECR_PUSH_ROLE + SSM_INSTANCE_ROLE, both attached by
-          # aws_ec2_jenkins_install.sh to the same jenkins-ec2-role) already
-          # grants both "aws ecr get-login-password" and "aws ssm send-command"
-          # without any Jenkins credential — the lightest combo in this repo.
+          # DockerHub push (build stage)
+          - string: { scope: GLOBAL, id: "dockerhub-username", secret: "${DOCKER_USERNAME}" }
+          - string: { scope: GLOBAL, id: "dockerhub-pat",      secret: "${DOCKERHUB_PAT}" }
 
-          # ECR registry to push to (build stage)
-          - string: { scope: GLOBAL, id: "ecr-registry", secret: "${ECR_REGISTRY}" }
-
-          # SSM deploy target (deploy stage)
-          - string: { scope: GLOBAL, id: "app-ec2-id", secret: "${APP_EC2_ID}" }
+          # SSH deploy target (deploy stage)
+          - string: { scope: GLOBAL, id: "app-ec2-ip", secret: "${APP_EC2_IP}" }
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "app-ec2-key"
+              username: "ec2-user"
+              privateKeySource:
+                directEntry:
+                  privateKey: "${readFile:/run/secrets/app-ec2-key.pem}"
 
 jobs:
   # AGENT TESTINGS: allows to check every agent declared for this configuration into Jenkins.
@@ -114,10 +110,10 @@ jobs:
         }
       }
 
-  # To ACTIVATE ecr-ssm-ec2: nothing else needed, it's already below.
+  # To ACTIVATE dockerhub-ssh-ec2: nothing else needed, it's already below.
   # To DEACTIVATE: comment out its block, then ./reload_jenkins_config.sh
   - script: >
-      pipelineJob('ecr-ssm-ec2') {
+      pipelineJob('dockerhub-ssh-ec2') {
         triggers {
           githubPush()
         }
@@ -132,7 +128,7 @@ jobs:
                 branch('*/main')
               }
             }
-            scriptPath('ecr_ssm_ec2/Jenkinsfile')
+            scriptPath('dockerhub_ssh_ec2/Jenkinsfile')
           }
         }
       }

@@ -34,7 +34,7 @@ pipeline {
         AWS_DEFAULT_REGION = 'eu-west-3'
 
         APP_SRC_DIR = 'java_app'          // code source partagé (Maven)
-        APP_DIR = 'dockerhub_ssm_ec2'
+        APP_DIR = 'pipelines/dockerhub_ssm_ec2'
     }
 
 

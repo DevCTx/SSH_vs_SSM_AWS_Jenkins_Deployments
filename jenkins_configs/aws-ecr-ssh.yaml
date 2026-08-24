@@ -114,7 +114,7 @@ jobs:
         }
       }
 
-  # ECR-SSH-EC2 : Pipeline using the AWS ECR registry and a deployment to AWS EC2 via SSH
+  # ECR-SSH-EC2 : Pipeline using the AWS ECR registry and the protocol SSH to deploy on AWS EC2
   - script: >
       pipelineJob('ecr-ssh-ec2') {
         triggers {
@@ -131,7 +131,7 @@ jobs:
                 branch('*/main')
               }
             }
-            scriptPath('ecr_ssh_ec2/Jenkinsfile')
+            scriptPath('pipelines/ecr_ssh_ec2/Jenkinsfile')
           }
         }
       }

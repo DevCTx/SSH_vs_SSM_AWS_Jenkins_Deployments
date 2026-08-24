@@ -126,7 +126,7 @@ jobs:
                 branch('*/main')
               }
             }
-            scriptPath('dockerhub_ssm_ec2/Jenkinsfile')
+            scriptPath('pipelines/dockerhub_ssm_ec2/Jenkinsfile')
           }
         }
       }

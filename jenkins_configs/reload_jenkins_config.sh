@@ -54,7 +54,7 @@ STATUS=$(curl -s -o /tmp/reload_response.html -w '%{http_code}' \
  
 rm -f "${COOKIE_JAR}"
  
-if [ "${STATUS}" != "200" ]; then
+if [[ "${STATUS}" != 2* ]] && [[ "${STATUS}" != 3* ]]; then
   echo "❌ Reload failed (HTTP ${STATUS})"
   cat /tmp/reload_response.html
   rm -f /tmp/reload_response.html

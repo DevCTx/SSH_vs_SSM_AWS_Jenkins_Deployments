@@ -236,6 +236,21 @@ aws_open_ingress_port() {
     --region $REGION >/dev/null 2>&1  || true
 }
 
+ 
+################################################################################
+# FIND EXISTING INSTANCE ID BY NAME (running/pending), empty if none
+# use : IID=$(aws_find_instance_id <name>)
+################################################################################
+aws_find_instance_id() {
+  local i_name="$1"
+  local i_id=$(aws ec2 describe-instances --region $REGION \
+    --filters "Name=tag:Name,Values=${i_name}-instance" \
+              "Name=instance-state-name,Values=running,pending" \
+    --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null)
+  [ "$i_id" = "None" ] && i_id=""
+  echo "$i_id"
+}
+
 
 ################################################################################
 # CREATE INSTANCE WITH SSH ACCESS AND/OR SSM INSTANCE PROFILE

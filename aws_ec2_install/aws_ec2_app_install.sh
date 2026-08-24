@@ -105,6 +105,9 @@ set_env APP_EC2_ID "$(aws_create_instance "t3.micro" "${APP_EC2_NAME}" "${APP_EC
 # Get the public IP address and set it into .env file
 set_env APP_EC2_IP "$(aws_get_public_instance_ip "${APP_EC2_ID}")"
 
+# Remember which parameters this instance has used for its configuration
+set_env APP_EC2_REGISTRY "${REGISTRY}"
+set_env APP_EC2_TRANSPORT "${TRANSPORT}"
 
 echo ""
 echo "=================================================="
@@ -117,7 +120,7 @@ if [ "${TRANSPORT}" = "ssh" ]; then
 else
   echo "  SSM enabled  : may take 30-60s to be activated on first boot"
   echo "  Test access  : aws ssm send-command --instance-ids ${APP_EC2_ID} \\"
-  echo "                   --document-name \"AWS-RunShellScript\" --parameters commands=\"echo ok\")"
+  echo "                   --document-name \"AWS-RunShellScript\" --parameters commands=\"echo ok\" "
 fi
 echo "=================================================="
 echo ""

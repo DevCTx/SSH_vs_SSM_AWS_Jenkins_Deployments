@@ -44,6 +44,7 @@ jenkins:
             pullStrategy: PULL_NEVER
             instanceCapStr: "2"
 
+          # docker-aws-agent, not docker-lite: SSM deploy needs the AWS CLI
           - labelString: "docker-aws-agent"
             dockerTemplateBase:
               image: "jenkins-docker-aws-agent"
@@ -70,15 +71,16 @@ credentials:
           - string: { scope: GLOBAL, id: "dockerhub-username", secret: "${DOCKER_USERNAME}" }
           - string: { scope: GLOBAL, id: "dockerhub-pat",      secret: "${DOCKERHUB_PAT}" }
 
-          # SSH deploy target (deploy stage)
-          - string: { scope: GLOBAL, id: "app-ec2-ip", secret: "${APP_EC2_IP}" }
-          - basicSSHUserPrivateKey:
+          # Jenkins runs LOCAL: no instance IAM role backs "aws ssm send-command",
+          # so an explicit AWS access key/secret is required here.
+          - aws:
               scope: GLOBAL
-              id: "app-ec2-key"
-              username: "ec2-user"
-              privateKeySource:
-                directEntry:
-                  privateKey: "${readFile:/run/secrets/app-ec2-key.pem}"
+              id: "aws-ssm-creds"
+              accessKey: "${AWS_ACCESS_KEY_ID}"
+              secretKey: "${AWS_SECRET_ACCESS_KEY}"
+ 
+          # SSM deploy target (deploy stage)
+          - string: { scope: GLOBAL, id: "app-ec2-id", secret: "${APP_EC2_ID}" }
 
 jobs:
   # AGENT TESTINGS: allows to check every agent declared for this configuration into Jenkins.
@@ -110,9 +112,9 @@ jobs:
         }
       }
 
-  # DOCKERHUB-SSM-EC2 : Pipeline using the DOCKERHUB registry and the protocol SSH to deploy on AWS EC2
+  # DOCKERHUB-SSM-EC2 : Pipeline using the DOCKERHUB registry and the protocol SSM to deploy on AWS EC2
   - script: >
-      pipelineJob('dockerhub-ssh-ec2') {
+      pipelineJob('dockerhub-ssm-ec2') {
         triggers {
           githubPush()
         }
@@ -127,7 +129,7 @@ jobs:
                 branch('*/main')
               }
             }
-            scriptPath('pipelines/dockerhub_ssh_ec2/Jenkinsfile')
+            scriptPath('pipelines/dockerhub_ssm_ec2/Jenkinsfile')
           }
         }
       }

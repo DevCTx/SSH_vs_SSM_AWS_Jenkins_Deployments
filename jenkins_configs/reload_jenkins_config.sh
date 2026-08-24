@@ -63,3 +63,27 @@ fi
 rm -f /tmp/reload_response.html
  
 echo "✅ Configuration reloaded."
+
+####################################################################################################
+# Delete any OTHER combo job 
+####################################################################################################
+ALL_JOBS=(dockerhub-ssh-ec2 dockerhub-ssm-ec2 ecr-ssh-ec2 ecr-ssm-ec2)
+ 
+case "${CONFIG_NAME}" in
+  *dockerhub*ssh*) ACTIVE_JOB=dockerhub-ssh-ec2 ;;
+  *dockerhub*ssm*) ACTIVE_JOB=dockerhub-ssm-ec2 ;;
+  *ecr*ssh*)       ACTIVE_JOB=ecr-ssh-ec2 ;;
+  *ecr*ssm*)       ACTIVE_JOB=ecr-ssm-ec2 ;;
+  *)               ACTIVE_JOB="" ;;
+esac
+ 
+if [ -n "${ACTIVE_JOB}" ]; then
+  CRUMB=$(curl -s "${AUTH[@]}" \
+    "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)")
+ 
+  for job in "${ALL_JOBS[@]}"; do
+    [ "${job}" = "${ACTIVE_JOB}" ] && continue
+    curl -s -o /dev/null "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/job/${job}/doDelete" || true
+  done
+  echo "✅ Only ${ACTIVE_JOB} remains active."
+fi

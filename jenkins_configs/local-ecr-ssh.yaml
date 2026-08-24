@@ -71,7 +71,7 @@ credentials:
           # so an explicit AWS access key/secret is required here.
           - aws:
               scope: GLOBAL
-              id: "aws-ecr-creds"
+              id: "aws-creds"
               accessKey: "${AWS_ACCESS_KEY_ID}"
               secretKey: "${AWS_SECRET_ACCESS_KEY}"
 

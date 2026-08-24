@@ -51,6 +51,16 @@ if ! grep -q "^JENKINS_ADMIN_PASSWORD=" "${ENV_FILE}" 2>/dev/null; then
 fi
 
 ####################################################################################################
+# ECR/SSM combos need AWS CLI creds -- create a local IAM user for them if Jenkins isn't on AWS already.
+####################################################################################################
+if [ "${REGISTRY}" = "ecr" ] || [ "${TRANSPORT}" = "ssm" ]; then
+  if ! TOKEN=$(get_imds_token) || [ -z "${TOKEN}" ]; then
+    source ../aws_ec2_install/aws_shared_library.sh
+    aws_prepare_local_jenkins_credentials
+  fi
+fi
+
+####################################################################################################
 # PREREQUISITES : Verify Docker, Compose and Buildx on the host 
 # Set as block to be able to run it as root privilege (needed for docker.pgp and docker deamon)
 ####################################################################################################
@@ -93,11 +103,8 @@ set_env DOCKER_GID "$(stat -c '%g' /var/run/docker.sock)"
 set_env JENKINS_INGRESS_IP "$(hostname -I | awk '{print $1}')"
 
 ####################################################################################################
-# Build agents. base/maven are always needed. A single docker-capable agent
-# (docker-aws-agent: Docker + AWS CLI) handles every combo -- the AWS CLI
-# binary alone grants no access without a credential or IAM role, so keeping
-# one image for both DockerHub and ECR/SSM costs a few extra MB with no
-# security trade-off, in exchange for a much simpler install/build story.
+# Build agents. 
+# --env-file ../.env: sudo drops DOCKER_GID, so Compose needs its value.
 ####################################################################################################
 
 # separated to be sure that the build of base-agent finishs 

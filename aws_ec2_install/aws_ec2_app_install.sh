@@ -7,6 +7,8 @@
 #   --transport ssm -> no SSH key, no port 22 opened; attaches $SSM_INSTANCE_ROLE
 #   --registry  ecr -> attaches $ECR_PULL_ROLE (read-only, pull permissions only)
 # Port 80 is always opened (the deployed app itself must stay reachable).
+# 
+# If an instance exists, it will be destroyed first and recreates with the new key/profile parameters
 #
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
@@ -40,6 +42,12 @@ APP_EC2_NAME=app-ec2
 APP_EC2_KEY=app-ec2-key    # SSH KEY for Jenkins to connect to APP-EC2 (ssh transport only)
 APP_EC2_SG=app-ec2-sg      # Security group for APP-EC2 Instance
 
+EXISTING_ID=$(aws_find_instance_id "${APP_EC2_NAME}")
+if [ -n "${EXISTING_ID}" ]; then
+  echo "=== Terminating existing instance ${EXISTING_ID} before recreating it ==="
+  aws_terminate_instance "${EXISTING_ID}"
+fi
+ 
 # Security group: port 80 always opened (the app must stay reachable),
 set_env APP_EC2_SG_ID "$(aws_create_sg "${APP_EC2_SG}")"
 aws_open_ingress_port "${APP_EC2_SG_ID}" "80" "0.0.0.0/0"   # public access to the deployed app

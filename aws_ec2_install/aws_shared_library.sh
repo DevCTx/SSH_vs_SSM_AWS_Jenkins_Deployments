@@ -103,6 +103,42 @@ SSM_INSTANCE_ROLE="arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 ECR_PUSH_ROLE="arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
 ECR_PULL_ROLE="arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 
+# Different from SSM_INSTANCE_ROLE: that one lets an INSTANCE be managed by
+# SSM; this one lets a CALLER (Jenkins itself) issue "aws ssm send-command".
+SSM_CALLER_ROLE="arn:aws:iam::aws:policy/AmazonSSMFullAccess"
+
+################################################################################
+# ENSURE A LOCAL IAM USER + ACCESS KEY EXISTS FOR 'aws-creds'
+# use : aws_prepare_local_jenkins_credentials
+################################################################################
+aws_prepare_local_jenkins_credentials() {
+  if [ -n "${JENKINS_AWS_ACCESS_KEY_ID:-}" ] && [ -n "${JENKINS_AWS_SECRET_ACCESS_KEY:-}" ]; then
+    echo "JENKINS_AWS_ACCESS_KEY_ID/JENKINS_AWS_SECRET_ACCESS_KEY already set in .env, skipping" >&2
+    return 0
+  fi
+
+  local user_name="jenkins-local-aws-creds"
+
+  echo "" >&2
+  echo "Preparing IAM user ($user_name) for Jenkins-in-local ECR/SSM combos" >&2
+
+  aws iam get-user --user-name "$user_name" >/dev/null 2>&1 || \
+    aws iam create-user --user-name "$user_name" >/dev/null
+
+  aws iam attach-user-policy --user-name "$user_name" \
+    --policy-arn "$SSM_CALLER_ROLE" >/dev/null 2>&1 || true
+  aws iam attach-user-policy --user-name "$user_name" \
+    --policy-arn "$ECR_PUSH_ROLE" >/dev/null 2>&1 || true
+
+  local key_json
+  key_json=$(aws iam create-access-key --user-name "$user_name" --output json)
+
+  set_env JENKINS_AWS_ACCESS_KEY_ID "$(echo "$key_json" | jq -r '.AccessKey.AccessKeyId')"
+  set_env JENKINS_AWS_SECRET_ACCESS_KEY "$(echo "$key_json" | jq -r '.AccessKey.SecretAccessKey')"
+
+  echo "Access key created and saved to .env" >&2
+}
+
 ################################################################################
 # PREPARE ROLE AND PROFILE FOR INSTANCE
 # use : aws_prepare_role_and_profile <role_name> <profile_name> <policy_arn>
@@ -236,7 +272,7 @@ aws_open_ingress_port() {
     --region $REGION >/dev/null 2>&1  || true
 }
 
- 
+
 ################################################################################
 # FIND EXISTING INSTANCE ID BY NAME (running/pending), empty if none
 # use : IID=$(aws_find_instance_id <name>)

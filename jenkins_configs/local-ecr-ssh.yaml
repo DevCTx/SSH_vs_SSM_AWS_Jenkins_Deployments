@@ -72,8 +72,8 @@ credentials:
           - aws:
               scope: GLOBAL
               id: "aws-creds"
-              accessKey: "${AWS_ACCESS_KEY_ID}"
-              secretKey: "${AWS_SECRET_ACCESS_KEY}"
+              accessKey: "${JENKINS_AWS_ACCESS_KEY_ID}"
+              secretKey: "${JENKINS_AWS_SECRET_ACCESS_KEY}"
 
           # ECR registry to push to (build stage)
           - string: { scope: GLOBAL, id: "ecr-registry", secret: "${ECR_REGISTRY}" }

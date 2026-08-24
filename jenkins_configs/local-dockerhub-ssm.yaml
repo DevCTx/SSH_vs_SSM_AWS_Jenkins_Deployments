@@ -76,8 +76,8 @@ credentials:
           - aws:
               scope: GLOBAL
               id: "aws-creds"
-              accessKey: "${AWS_ACCESS_KEY_ID}"
-              secretKey: "${AWS_SECRET_ACCESS_KEY}"
+              accessKey: "${JENKINS_AWS_ACCESS_KEY_ID}"
+              secretKey: "${JENKINS_AWS_SECRET_ACCESS_KEY}"
  
           # SSM deploy target (deploy stage)
           - string: { scope: GLOBAL, id: "app-ec2-id", secret: "${APP_EC2_ID}" }

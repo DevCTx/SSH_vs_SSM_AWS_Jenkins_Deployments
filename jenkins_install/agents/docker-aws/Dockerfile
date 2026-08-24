@@ -7,7 +7,8 @@ ARG DOCKER_GID=999
 # docker.io for build/push; unzip is only needed to install the AWS CLI below.
 RUN apt-get update && apt-get install -y \
     docker.io \
-    unzip && \
+    unzip \
+    jq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

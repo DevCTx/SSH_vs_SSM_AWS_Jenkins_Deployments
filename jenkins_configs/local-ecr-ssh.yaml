@@ -1,0 +1,146 @@
+jenkins:
+
+  # Controller orchestrates only, never builds. Jobs run on separate agents.
+  numExecutors: 0
+
+  # Authentication via DEFINED ADMIN user only (No LDAP or SSO)
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USER}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+
+  # And this user will get ALL ADMIN privileges
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+        - user:
+            name: "${JENKINS_ADMIN_USER}"
+            permissions:
+              - "Overall/Administer"
+
+  # Will use a docker cloud with specific connected agents needed for this config
+  clouds:
+    - docker:
+        name: "docker-cloud"
+        dockerApi:
+          dockerHost:
+            uri: "unix:///var/run/docker.sock"
+
+        templates:
+
+          - labelString: "base-agent"
+            dockerTemplateBase: { image: "jenkins-base-agent" }
+            remoteFs: "/home/jenkins"
+            connector: { attach: {} }
+            pullStrategy: PULL_NEVER
+            instanceCapStr: "2"
+
+          - labelString: "maven-agent"
+            dockerTemplateBase: { image: "jenkins-maven-agent" }
+            remoteFs: "/home/jenkins"
+            connector: { attach: {} }
+            pullStrategy: PULL_NEVER
+            instanceCapStr: "2"
+
+          # docker-aws-agent, not docker-lite: ECR push needs the AWS CLI
+          - labelString: "docker-aws-agent"
+            dockerTemplateBase:
+              image: "jenkins-docker-aws-agent"
+              mounts:
+                - "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock"
+              extraGroups: [ "${DOCKER_GID}" ]
+            remoteFs: "/home/jenkins"
+            connector: { attach: {} }
+            pullStrategy: PULL_NEVER
+            instanceCapStr: "2"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          # GitHub checkout + webhook trust
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-token"
+              username: "${GITHUB_OWNER}"
+              password: "${GITHUB_JENKINS_TOKEN}"
+
+          # Jenkins runs LOCAL: no instance IAM role backs "aws ecr get-login-password",
+          # so an explicit AWS access key/secret is required here.
+          - aws:
+              scope: GLOBAL
+              id: "aws-ecr-creds"
+              accessKey: "${AWS_ACCESS_KEY_ID}"
+              secretKey: "${AWS_SECRET_ACCESS_KEY}"
+
+          # ECR registry to push to (build stage)
+          - string: { scope: GLOBAL, id: "ecr-registry", secret: "${ECR_REGISTRY}" }
+
+          # SSH deploy target (deploy stage)
+          - string: { scope: GLOBAL, id: "app-ec2-ip", secret: "${APP_EC2_IP}" }
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "app-ec2-key"
+              username: "ec2-user"
+              privateKeySource:
+                directEntry:
+                  privateKey: "${readFile:/run/secrets/app-ec2-key.pem}"
+
+jobs:
+  # AGENT TESTINGS: allows to check every agent declared for this configuration into Jenkins.
+  - script: >
+      pipelineJob('agent-testings') {
+        definition {
+          cps {
+            sandbox(true)
+            script('''
+              pipeline {
+                agent none
+                stages {
+                  stage('Test Base') {
+                    agent { label 'base-agent' }
+                    steps { sh 'java -version && git --version' }
+                  }
+                  stage('Test Maven') {
+                    agent { label 'maven-agent' }
+                    steps { sh 'java -version && mvn -v' }
+                  }
+                  stage('Test Docker') {
+                    agent { label 'docker-aws-agent' }
+                    steps { sh 'docker --version && aws --version' }
+                  }
+                }
+              }
+            '''.stripIndent())
+          }
+        }
+      }
+
+  # To ACTIVATE ecr-ssh-ec2: nothing else needed, it's already below.
+  # To DEACTIVATE: comment out its block, then ./reload_jenkins_config.sh
+  - script: >
+      pipelineJob('ecr-ssh-ec2') {
+        triggers {
+          githubPush()
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url("https://github.com/" + System.getenv('REPO') + ".git")
+                  credentials('github-token')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('ecr_ssh_ec2/Jenkinsfile')
+          }
+        }
+      }
+
+unclassified:
+  location:
+    url: "http://${JENKINS_INGRESS_IP}:8080/"

@@ -1,0 +1,128 @@
+#!/usr/bin/env groovy
+//
+// Jenkinsfile — ecr_ssm_ec2 variant
+// Build a Java app with Maven, push to ECR, deploy to AWS EC2 over SSM.
+// Uses a project-scoped shared library.
+//
+
+def GIT_SHARED_LIB = "https://github.com/DevCTx/jenkins-limited-shared-library.git"
+
+// Download the shared library from GitHub before the pipeline runs.
+library identifier: "jenkins-limited-shared-library@main",
+    retriever: modernSCM([
+        $class: "GitSCMSource",
+        remote: GIT_SHARED_LIB,
+        credentialsId: "github-token"
+    ])
+
+
+pipeline {
+
+	agent none
+
+    options {
+        skipDefaultCheckout(true)   // disable the automatic checkout
+        preserveStashes(buildCount: 5)  // to activate the restart from stage with stashes preserved
+    }
+
+    environment {
+        APP_IMAGE_NAME = 'demo-java-app'
+        APP_VERSION = '3.0'
+        APP_HOST_PORT = '3080'
+        APP_CONTAINER_PORT = '3080'
+        APP_CONTAINER_NAME = 'java-app'
+        AWS_DEFAULT_REGION = 'eu-west-3'
+
+        APP_SRC_DIR = 'java_app'          // code source partagé (Maven)
+        APP_DIR = 'ecr_ssm_ec2'
+    }
+
+
+    stages {
+
+        stage('Init env') {
+            agent { label 'base-agent' }
+
+            steps {
+
+                checkout scm
+
+                script {
+                    // Only at this step to be sure to get the build version
+                    env.APP_IMAGE_TAG = "${env.APP_VERSION}.${BUILD_NUMBER}"
+                }
+
+                stash name: 'sources', includes: '**'
+            }
+
+            post { always { cleanWs() } }   // Clean Workspace
+        }
+
+        stage("build jar") {
+            agent { label 'maven-agent' }
+            steps {
+                unstash 'sources'
+
+                dir(env.APP_SRC_DIR) {
+                    // shared lib: build maven java app into the app folder
+                    localBuildJar()
+                }
+                // Then copy the JAR file into APP_DIR for Docker
+                sh "mkdir -p ${env.APP_DIR}/target && cp ${env.APP_SRC_DIR}/target/*.jar ${env.APP_DIR}/target/"
+                stash name: 'app_files', includes: "${env.APP_DIR}/target/*.jar,${env.APP_DIR}/Dockerfile"
+            }
+
+            post { always { cleanWs() } }   // Clean Workspace
+        }
+
+        stage("build and push image") {
+            agent { label 'docker-aws-agent' }
+
+            steps {
+                unstash 'app_files'
+
+                dir(env.APP_DIR) {
+
+                    // shared lib : build and push docker image on ECR
+                    ecrBuildAndPushImage()
+                }
+            }
+
+            post { always { cleanWs() } }   // Clean Workspace
+        }
+
+        stage("deploy and cleanup EC2 Images") {
+            agent { label 'docker-aws-agent' }
+            steps {
+                unstash 'app_files'
+
+                dir(env.APP_DIR) {
+
+                    // shared lib: Deploy with docker compose on EC2 via SSM
+                    ec2DeployDockerComposeSSM()
+
+                    // shared lib: clean docker image on AWS EC2 server via SSM
+                    ec2CleanImageExceptTagSSM()
+                }
+            }
+
+            post { always { cleanWs() } }   // Clean Workspace
+        }
+
+        stage("cleanup local and ECR Images") {
+            agent { label 'docker-aws-agent' }
+
+            steps {
+                dir(env.APP_DIR) {
+                    // shared lib : clean docker image on ECR
+                    ecrCleanImageExceptTag()
+
+                    // shared lib : clean docker image on Jenkins server
+                    localCleanEcrImageExceptTag()
+                }
+            }
+
+            post { always { cleanWs() } }   // Clean Workspace
+        }
+    }
+}

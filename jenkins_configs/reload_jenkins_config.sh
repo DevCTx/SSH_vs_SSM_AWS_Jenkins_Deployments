@@ -40,11 +40,19 @@ AUTH=(-u "${JENKINS_ADMIN_USER}:${JENKINS_ADMIN_PASSWORD}")
 
 echo ""
 echo "=== Reloading JCasC configuration ==="
-CRUMB=$(curl -s "${AUTH[@]}" \
+ 
+# Cookie jar shared between the two calls: with basic auth alone (no
+# session persisted), Jenkins may issue the crumb for one implicit session
+# and reject it on the next request as belonging to a different one.
+COOKIE_JAR=$(mktemp)
+ 
+CRUMB=$(curl -s -c "${COOKIE_JAR}" "${AUTH[@]}" \
   "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)")
-
+ 
 STATUS=$(curl -s -o /tmp/reload_response.html -w '%{http_code}' \
-  "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/configuration-as-code/reload")
+  -b "${COOKIE_JAR}" "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/configuration-as-code/reload")
+ 
+rm -f "${COOKIE_JAR}"
  
 if [ "${STATUS}" != "200" ]; then
   echo "❌ Reload failed (HTTP ${STATUS})"

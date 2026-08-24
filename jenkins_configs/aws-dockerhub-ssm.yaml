@@ -3,11 +3,6 @@ jenkins:
   # Controller orchestrates only, never builds. Jobs run on separate agents.
   numExecutors: 0
 
-  # Avoids CSRF token errors when reloading the config via script through Docker
-  crumbIssuer:
-    standard:
-      excludeClientIPFromCrumb: true
-
   # Authentication via DEFINED ADMIN user only (No LDAP or SSO)
   securityRealm:
     local:
@@ -114,8 +109,7 @@ jobs:
         }
       }
 
-  # To ACTIVATE dockerhub-ssm-ec2: nothing else needed, it's already below.
-  # To DEACTIVATE: comment out its block, then ./reload_jenkins_config.sh
+  # DOCKERHUB-SSM-EC2 : Pipeline using the DOCKERHUB registry and the protocol SSM to deploy on AWS EC2
   - script: >
       pipelineJob('dockerhub-ssm-ec2') {
         triggers {

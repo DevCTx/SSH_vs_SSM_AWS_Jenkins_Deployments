@@ -99,6 +99,5 @@ else
   echo "✅ Webhook CREATED -> $HOOK_URL"
 fi
 
-
-# Export all variables from .env
+# just for convenience
 set_env JENKINS_URL "$JENKINS_URL"

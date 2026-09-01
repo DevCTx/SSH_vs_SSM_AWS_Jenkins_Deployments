@@ -175,6 +175,25 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 
 **All the scripts apply exactly the IAM/SSH/SSM permissions needed for the chosen combo, no more, no less (least-privilege principle).**
 
+## Testing all 4 combos in one session
+ 
+Install Jenkins once with `ecr ssm` — the most demanding combo — so the
+local IAM user (`aws-creds` Jenkins credential) is created right away and
+reused by the other local combos too. Only DockerHub/SSH needs nothing
+extra; the others all reuse this same credential:
+```bash
+./jenkins_install/jenkins_local_install.sh ecr ssm
+./jenkins_install/setup_github_webhook.sh
+```
+Then run the smoke test for each combo, in any order — no other manual
+step in between (each call provisions its own app instance if missing,
+loads its config, and verifies the deployment):
+```bash
+./test_deployments.sh dockerhub ssh
+./test_deployments.sh dockerhub ssm
+./test_deployments.sh ecr ssh
+./test_deployments.sh ecr ssm
+```
 
 ## Decision table
 

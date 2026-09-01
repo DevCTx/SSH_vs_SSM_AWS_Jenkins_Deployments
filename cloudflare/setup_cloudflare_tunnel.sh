@@ -50,6 +50,6 @@ set_env JENKINS_TUNNEL_URL "${TUNNEL_URL}"
 set_env JENKINS_TUNNEL_PID "${CF_PID}"
 
 echo "Tunnel ready : ${JENKINS_TUNNEL_URL}  (pid ${JENKINS_TUNNEL_PID})"
-echo "Note: this URL changes every time the tunnel restarts — re-run this"
-echo "script (or setup_github_webhook.sh) to refresh the GitHub webhook."
+echo "Note: this URL changes every time the tunnel restarts — re-run"
+echo "setup_github_webhook.sh to refresh the GitHub webhook."
 echo "To stop it: kill ${JENKINS_TUNNEL_PID}"

@@ -4,3 +4,4 @@ target
 jenkins/
 *.pem
 *.log
+jenkins_install/controller/jenkins-config.yaml

@@ -44,7 +44,7 @@ jenkins:
             pullStrategy: PULL_NEVER
             instanceCapStr: "2"
 
-          # docker-aws-agent, not docker-lite: SSM deploy needs the AWS CLI
+          # SSM deploy needs the AWS CLI
           - labelString: "docker-aws-agent"
             dockerTemplateBase:
               image: "jenkins-docker-aws-agent"
@@ -80,7 +80,7 @@ credentials:
               secretKey: "${JENKINS_AWS_SECRET_ACCESS_KEY}"
  
           # SSM deploy target (deploy stage)
-          - string: { scope: GLOBAL, id: "app-ec2-id", secret: "${APP_EC2_ID}" }
+          - string: { scope: GLOBAL, id: "app-ec2-id", secret: "${APP_EC2_ID_DOCKERHUB_SSM}" }
 
 jobs:
   # AGENT TESTINGS: allows to check every agent declared for this configuration into Jenkins.

@@ -44,7 +44,7 @@ jenkins:
             pullStrategy: PULL_NEVER
             instanceCapStr: "2"
 
-          # docker-aws-agent, not docker-lite: ECR push needs the AWS CLI
+          # ECR push needs the AWS CLI
           - labelString: "docker-aws-agent"
             dockerTemplateBase:
               image: "jenkins-docker-aws-agent"
@@ -75,7 +75,7 @@ credentials:
           - string: { scope: GLOBAL, id: "ecr-registry", secret: "${ECR_REGISTRY}" }
 
           # SSH deploy target (deploy stage)
-          - string: { scope: GLOBAL, id: "app-ec2-ip", secret: "${APP_EC2_IP}" }
+          - string: { scope: GLOBAL, id: "app-ec2-ip", secret: "${APP_EC2_IP_ECR_SSH}" }
           - basicSSHUserPrivateKey:
               scope: GLOBAL
               id: "app-ec2-key"

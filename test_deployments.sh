@@ -32,23 +32,21 @@ fi
 
 
 ####################################################################################################
-# Recreate if needed the app EC2 instance for these parameters 
-# so the SSH key / IAM profile will match REGISTRY/TRANSPORT
+# Create or Recreate if needed the app EC2 instance for these parameters 
+# so the SSH key / IAM profile will match REGISTRY/TRANSPORT. One persistent instance per combo.
 ####################################################################################################
-if [ "${APP_EC2_REGISTRY:-}" = "${REGISTRY}" ] && [ "${APP_EC2_TRANSPORT:-}" = "${TRANSPORT}" ]; then
-  echo "=== App EC2 instance already set up for ${REGISTRY}/${TRANSPORT} ==="
-else
-  echo "=== Preparing the app EC2 instance for ${REGISTRY}/${TRANSPORT} ==="
-  ./aws_ec2_install/aws_ec2_app_install.sh "${REGISTRY}" "${TRANSPORT}"
+./aws_ec2_install/aws_ec2_app_install.sh "${REGISTRY}" "${TRANSPORT}"
  
-  # Re-read .env: the install script above just wrote a fresh APP_EC2_IP/APP_EC2_ID
-  source ./env_install/env_shared_library.sh
-fi
+# Re-read .env in case aws_ec2_app_install.sh just created this combo's instance
+source ./env_install/env_shared_library.sh
  
+COMBO_SUFFIX="$(echo "${REGISTRY}_${TRANSPORT}" | tr '[:lower:]' '[:upper:]')"
 if [ "${TRANSPORT}" = "ssh" ]; then
-  : "${APP_EC2_IP:?aws_ec2_app_install.sh did not set APP_EC2_IP}"
+  APP_EC2_IP="$(eval echo \$"APP_EC2_IP_${COMBO_SUFFIX}")"
+  : "${APP_EC2_IP:?APP_EC2_IP_${COMBO_SUFFIX} not set in .env}"
 else
-  : "${APP_EC2_ID:?aws_ec2_app_install.sh did not set APP_EC2_ID}"
+  APP_EC2_ID="$(eval echo \$"APP_EC2_ID_${COMBO_SUFFIX}")"
+  : "${APP_EC2_ID:?APP_EC2_ID_${COMBO_SUFFIX} not set in .env}"
 fi
 
 
@@ -65,6 +63,7 @@ fi
  
 echo "=== Loading config: ${CONFIG_NAME}.yaml ==="
 ./jenkins_configs/reload_jenkins_config.sh "${CONFIG_NAME}.yaml"
+
 
 ####################################################################################################
 # Get the lastest tag pushed on ECR or DockerHub
@@ -84,6 +83,7 @@ echo "=== Checking the current tag before triggering the pipeline ==="
 BEFORE_TAG=$(get_latest_tag)
 echo "Current tag: ${BEFORE_TAG:-<none>}"
 
+
 ####################################################################################################
 # Trigger the pipeline with an empty commit — no code change needed.
 ####################################################################################################
@@ -91,6 +91,7 @@ echo ""
 echo "=== Triggering the pipeline (empty commit + push) ==="
 git commit --allow-empty -m "test: trigger deployment ($(date -u +%FT%TZ))"
 git push
+
 
 ####################################################################################################
 # Wait for a new tag to appear on the registry (5 min timeout).
@@ -113,8 +114,9 @@ if [ -z "${AFTER_TAG}" ] || [ "${AFTER_TAG}" = "${BEFORE_TAG}" ]; then
   exit 1
 fi
 
+
 ####################################################################################################
-# Verify EC2 is running that exact tag.
+# Verify that EC2 is running that exact tag.
 ####################################################################################################
 echo ""
 echo "=== Verifying the deployed tag on EC2 (up to 2 min) ==="

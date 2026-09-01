@@ -44,7 +44,7 @@ jenkins:
             pullStrategy: PULL_NEVER
             instanceCapStr: "2"
 
-          # docker-aws-agent, not docker-lite: SSM deploy needs the AWS CLI
+          # SSM deploy needs the AWS CLI
           # even though the registry itself is DockerHub.
           - labelString: "docker-aws-agent"
             dockerTemplateBase:
@@ -77,7 +77,7 @@ credentials:
           # grants "aws ssm send-command" without any Jenkins credential.
 
           # SSM deploy target (deploy stage)
-          - string: { scope: GLOBAL, id: "app-ec2-id", secret: "${APP_EC2_ID}" }
+          - string: { scope: GLOBAL, id: "app-ec2-id", secret: "${APP_EC2_ID_DOCKERHUB_SSM}" }
 
 jobs:
   # AGENT TESTINGS: allows to check every agent declared for this configuration into Jenkins.

@@ -1,6 +1,7 @@
 1. Assure toi d'avoir les comptes nécessaire (AWS, DockerHub, GitHub) 
    et teste-les avec les scripts test_*_config.sh
 
+```
 git init        # start a fresh repository
 git add .
 git commit -m "Initial commit"
@@ -12,12 +13,12 @@ env gh repo create DevCTx/SSH_vs_SSM_AWS_Jenkins_Deployments \
   --description "Full CI/CD pipeline for a Java application: triggered by a GitHub webhook on push, built with Maven via Jenkins on local or on AWS EC2, automatic image tagging, push to DockerHub or AWS ECR, and deployment to AWS EC2 via SSH or SSM." \
   --source=. \
   --push
-
+```
 
 2. Définis la configuration de REGISTRE (dockerhub ou aws ecr) 
    et de protocole de transfert (SSH ou SSM) que tu veux tester
 
-3. Installe l'instance EC2 qui hébergera l'application :
+3. Installe l instance EC2 qui hébergera l'application :
    ./aws_ec2_install/aws_ec2_app_install.sh <dockerhub|ecr> <ssh|ssm>
 
 4. Installe Jenkins en local ou sur une nouvelle instance AWS :
@@ -25,11 +26,11 @@ env gh repo create DevCTx/SSH_vs_SSM_AWS_Jenkins_Deployments \
    - En local :
    ./jenkins_install/jenkins_local_install.sh <dockerhub|ecr> <ssh|ssm>
    
-   - Sur AWS (crée d'abord une nouvelle instance dédiée) :
+   - Sur AWS (crée d abord une nouvelle instance dédiée) :
    ./aws_ec2_install/aws_ec2_jenkins_install.sh <dockerhub|ecr> <ssh|ssm>
    ./jenkins_install/jenkins_aws_install.sh <dockerhub|ecr> <ssh|ssm>
 
-5. Configure le GitHub webhook selon l'installation de Jenkins
+5. Configure le GitHub webhook selon l installation de Jenkins
    ./jenkins_install/setup_github_webhook.sh
 
 6. Lance un test de déploiement sur la combinaison définie :

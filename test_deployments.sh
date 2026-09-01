@@ -57,8 +57,13 @@ fi
 if ! TOKEN=$(get_imds_token) || [ -z "${TOKEN}" ]; then
   echo "=== Refreshing the local Jenkins controller so it picks up any new instance details ==="
   (cd jenkins_install && sudo docker compose --env-file ../.env up -d controller)
-  echo "Waiting 15s for the Jenkins controller to restart..."
-  sleep 15
+ 
+  echo "Waiting for Jenkins to finish restarting..."
+  for i in $(seq 1 24); do
+    STATUS=$(curl -s -o /dev/null -w '%{http_code}' "http://${JENKINS_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
+    [ "${STATUS}" = "200" ] && break
+    sleep 5
+  done
 else
   echo "⚠️  Jenkins runs on AWS — recreate its controller manually over SSH if this combo's instance is new."
 fi

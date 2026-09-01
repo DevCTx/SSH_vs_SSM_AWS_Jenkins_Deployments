@@ -18,7 +18,7 @@ aws_get_ami_info() {
 
   # Get information about the AMI(Amazon Image) because it changes with time and region (ami id)
   AL2023_AMI=$(aws ec2 describe-images --region $REGION --owners amazon \
-    --filters "Name=name,Values=al2023-ami-*-x86_64" \
+    --filters "Name=name,Values=al2023-ami-2*-x86_64" \
     --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)
  
   # Get the size required by AWS for this image

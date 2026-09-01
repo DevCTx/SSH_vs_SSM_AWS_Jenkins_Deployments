@@ -26,8 +26,6 @@ APP_CONTAINER_NAME="java-app"
 
 if [ "${REGISTRY}" = "dockerhub" ]; then
   : "${DOCKER_USERNAME:?Set DOCKER_USERNAME in .env first}"
-else
-  : "${ECR_REGISTRY:?Set ECR_REGISTRY in .env first}"
 fi
 
 

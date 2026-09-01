@@ -78,7 +78,7 @@ credentials:
           - string: { scope: GLOBAL, id: "app-ec2-ip", secret: "${APP_EC2_IP_ECR_SSH}" }
           - basicSSHUserPrivateKey:
               scope: GLOBAL
-              id: "app-ec2-key"
+              id: "app-ec2-ssh-key"
               username: "ec2-user"
               privateKeySource:
                 directEntry:

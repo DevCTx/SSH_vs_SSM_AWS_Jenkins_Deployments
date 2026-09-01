@@ -49,8 +49,8 @@ set_env() {
   local env_var="$1"
   local value="$2"  
 
-  echo "" >&2
-  echo "Set ${env_var} at ${value} into it into ${ENV_FILE} file" >&2
+  #echo "" >&2
+  #echo "Set ${env_var} at ${value} into it into ${ENV_FILE} file" >&2
 
   grep -v "^${env_var}=" "${ENV_FILE}" 2>/dev/null > "${ENV_FILE}.tmp" || true
   echo "${env_var}=${value}" >> "${ENV_FILE}.tmp"
@@ -66,8 +66,8 @@ set_env() {
 unset_env() {
   local env_var="$1"
 
-  echo "" >&2
-  echo "Unset ${env_var} from ${ENV_FILE} file" >&2
+  #echo "" >&2
+  #echo "Unset ${env_var} from ${ENV_FILE} file" >&2
 
   [ -f "${ENV_FILE}" ] || return 0
   grep -v "^${env_var}=" "${ENV_FILE}" > "${ENV_FILE}.tmp" || true

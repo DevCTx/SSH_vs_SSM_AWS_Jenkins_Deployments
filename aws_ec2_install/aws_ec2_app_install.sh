@@ -7,7 +7,7 @@
 # Each combo gets its own instance, security group, and IAM role -- no port
 # 22 leaks onto SSM combos, and the IP no longer changes on every destroy/recreate.
 #
-# Use: ./aws_ec2_app_install.sh <dockerhub|ecr> <ssh|ssm>
+# Usage: ./aws_ec2_app_install.sh <dockerhub|ecr> <ssh|ssm>
 #
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
@@ -26,7 +26,7 @@ fi
 
 echo ""
 echo "=== Preparing the app EC2 instance for ${REGISTRY}/${TRANSPORT} ==="
- 
+
 # Get and prepare the AMI + volume size
 aws_get_ami_info
 
@@ -34,23 +34,23 @@ aws_get_ami_info
 aws_prepare_install_docker_script
 
 ####################################################################################################
-# One specific instance name per combo. 
-# The Security Groups depends of the use of SSH (port 22).
-# The SSH key can be shared between the different instances but is created only if needed.
+# Shared per TRANSPORT, not per combo: SG rules and the SSH key only depend
+# on the transport (open port 22 or not) -- the registry has no bearing on
+# either, so both registries reuse the same SG/key for a given transport.
 ####################################################################################################
 APP_EC2_NAME="app-ec2-${REGISTRY}-${TRANSPORT}"
 APP_EC2_SG="app-ec2-${TRANSPORT}-sg"
- 
+
 # Security group: port 80 always opened (the app must stay reachable),
 set_env APP_EC2_SG_ID "$(aws_create_sg "${APP_EC2_SG}")"
 aws_open_ingress_port "${APP_EC2_SG_ID}" "80" "0.0.0.0/0"   # public access to the deployed app
- 
+
 # port 22 opened only for the ssh transport, on THIS combo's own security
 # group -- never on the ssm combos', which stay port-22-free.
 if [ "${TRANSPORT}" = "ssh" ]; then
   APP_EC2_SSH_KEY="app-ec2-ssh-key"
   aws_create_SSH_key "${APP_EC2_SSH_KEY}"
- 
+
   # port 22 always opend to local IP for debugging if needed 
   LOCAL_IP="$(get_local_public_ipV4)"
   aws_open_ingress_port "${APP_EC2_SG_ID}" "22" "${LOCAL_IP}/32"
@@ -68,15 +68,15 @@ fi
 ####################################################################################################
 APP_EC2_ROLE="app-ec2-${REGISTRY}-${TRANSPORT}-role"
 APP_EC2_PROFILE="app-ec2-${REGISTRY}-${TRANSPORT}-profile"
- 
+
 APP_EC2_SSH_KEY_ARG=""
 APP_EC2_PROFILE_ARG=""
- 
+
 # Define the --key-name argument for the instance creation
 if [ "${TRANSPORT}" = "ssh" ]; then
   APP_EC2_SSH_KEY_ARG="${APP_EC2_SSH_KEY}"
 fi
- 
+
 # Define the --iam-instance-profile argument for the instance creation
 if [ "${TRANSPORT}" = "ssm" ]; then
   aws_prepare_role_and_profile "${APP_EC2_ROLE}" "${APP_EC2_PROFILE}" "${SSM_INSTANCE_ROLE}"
@@ -84,25 +84,25 @@ if [ "${TRANSPORT}" = "ssm" ]; then
 fi
 # combinable
 if [ "${REGISTRY}" = "ecr" ]; then
+  aws_prepare_ecr_registry
   aws_prepare_role_and_profile "${APP_EC2_ROLE}" "${APP_EC2_PROFILE}" "${ECR_PULL_ROLE}"
   APP_EC2_PROFILE_ARG="${APP_EC2_PROFILE}"
 fi
 
-
 ####################################################################################################
-# Creates an AWS Linux 2023 Instance and installs Docker (user-data), 
-# or just confirms it's already there and running (idempotent)
+# Creates an AWS Linux 2023 Instance and installs Docker (user-data), or
+# just confirms it's already there and running -- aws_create_instance is
+# idempotent, so calling this script again for the same combo is a no-op.
 ####################################################################################################
 
 INSTANCE_ID="$(aws_create_instance "t3.micro" "${APP_EC2_NAME}" "${APP_EC2_SG_ID}" "${APP_EC2_SSH_KEY_ARG}" "${APP_EC2_PROFILE_ARG}")"
 PUBLIC_IP="$(aws_get_public_instance_ip "${INSTANCE_ID}")"
- 
+
 # Combo-specific keys (e.g. APP_EC2_ID_DOCKERHUB_SSH, APP_EC2_IP_ECR_SSM) so
 # all 4 combos' instances coexist in .env without overwriting each other.
 COMBO_SUFFIX="$(echo "${REGISTRY}_${TRANSPORT}" | tr '[:lower:]' '[:upper:]')"
 set_env "APP_EC2_ID_${COMBO_SUFFIX}" "${INSTANCE_ID}"
 set_env "APP_EC2_IP_${COMBO_SUFFIX}" "${PUBLIC_IP}"
-
 
 echo ""
 echo "=================================================="

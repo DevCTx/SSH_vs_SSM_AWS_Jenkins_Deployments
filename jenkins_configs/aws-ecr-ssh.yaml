@@ -68,7 +68,7 @@ credentials:
               password: "${GITHUB_JENKINS_TOKEN}"
 
           # No AWS credential here: Jenkins runs ON AWS, its instance IAM role
-          # (ECR_PUSH_ROLE, attached by aws_ec2_jenkins_install.sh) already
+          # (ECR_FULL_ROLE, attached by aws_ec2_jenkins_install.sh) already
           # grants "aws ecr get-login-password" without any Jenkins credential.
 
           # ECR registry to push to (build stage)

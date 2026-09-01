@@ -4,7 +4,7 @@
 #   - grant an admin SSH access 
 #   - and a potential IAM role accorded to the chosen registry/transport options
 #      --registry dockerhub --transport ssh -> no IAM role needed at all.
-#      --registry  ecr   -> $ECR_PUSH_ROLE      (aws ecr get-login-password from Jenkins)
+#      --registry  ecr   -> $ECR_FULL_ROLE      (aws ecr get-login-password from Jenkins)
 #      --transport ssm   -> $SSM_INSTANCE_ROLE  (aws ssm send-command from Jenkins)
 #
 set -e
@@ -62,7 +62,7 @@ if [ "${TRANSPORT}" = "ssm" ]; then
 fi
  
 if [ "${REGISTRY}" = "ecr" ]; then
-  aws_prepare_role_and_profile "${JENKINS_EC2_ROLE}" "${JENKINS_EC2_PROFILE}" "${ECR_PUSH_ROLE}"
+  aws_prepare_role_and_profile "${JENKINS_EC2_ROLE}" "${JENKINS_EC2_PROFILE}" "${ECR_FULL_ROLE}"
   NEEDS_PROFILE=true
 fi
 

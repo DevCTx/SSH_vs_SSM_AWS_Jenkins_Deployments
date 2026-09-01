@@ -99,7 +99,7 @@ INSTANCE_ID="$(aws_create_instance "t3.micro" "${APP_EC2_NAME}" "${APP_EC2_SG_ID
 PUBLIC_IP="$(aws_get_public_instance_ip "${INSTANCE_ID}")"
 
 # Combo-specific keys (e.g. APP_EC2_ID_DOCKERHUB_SSH, APP_EC2_IP_ECR_SSM) so
-# all 4 combos' instances coexist in .env without overwriting each other.
+# all 4 combos' instances coexist in .env without overwriting each other. 
 COMBO_SUFFIX="$(echo "${REGISTRY}_${TRANSPORT}" | tr '[:lower:]' '[:upper:]')"
 set_env "APP_EC2_ID_${COMBO_SUFFIX}" "${INSTANCE_ID}"
 set_env "APP_EC2_IP_${COMBO_SUFFIX}" "${PUBLIC_IP}"

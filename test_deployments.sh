@@ -51,6 +51,20 @@ fi
 
 
 ####################################################################################################
+# Refresh the local Jenkins controller: it only reads .env at creation,
+# not on a JCasC reload, so a combo's fresh IP/ID could still be missing.
+####################################################################################################
+if ! TOKEN=$(get_imds_token) || [ -z "${TOKEN}" ]; then
+  echo "=== Refreshing the local Jenkins controller so it picks up any new instance details ==="
+  (cd jenkins_install && sudo docker compose --env-file ../.env up -d controller)
+  echo "Waiting 15s for the Jenkins controller to restart..."
+  sleep 15
+else
+  echo "⚠️  Jenkins runs on AWS — recreate its controller manually over SSH if this combo's instance is new."
+fi
+
+
+####################################################################################################
 # Load the matching pipeline config BEFORE triggering the webhook
 ####################################################################################################
 if [ "${REGISTRY}" = "dockerhub" ] && [ "${TRANSPORT}" = "ssh" ]; then

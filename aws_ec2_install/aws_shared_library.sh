@@ -67,7 +67,7 @@ EOF
 aws_create_SSH_key() {
   local key_name="$1"
 
-  echo "" >&2
+  echo "" >&2 
   echo "Test if Key pair exists for $key_name else (re)create it" >&2
 
   if [ ! -f "$key_name.pem" ]; then

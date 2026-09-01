@@ -139,6 +139,32 @@ aws_prepare_local_jenkins_credentials() {
   echo "Access key created and saved to .env" >&2
 }
 
+ 
+################################################################################
+# ENSURE THE ECR REPOSITORY EXISTS AND ECR_REGISTRY IS SET
+# use : aws_prepare_ecr_registry
+################################################################################
+aws_prepare_ecr_registry() {
+  if [ -n "${ECR_REGISTRY:-}" ]; then
+    echo "ECR_REGISTRY already set in .env, skipping" >&2
+    return 0
+  fi
+ 
+  local repo_name="demo-java-app"   # must match APP_IMAGE_NAME in pipelines/*/Jenkinsfile
+ 
+  echo "" >&2
+  echo "Preparing ECR repository ($repo_name)" >&2
+ 
+  aws ecr describe-repositories --repository-names "$repo_name" --region "$REGION" >/dev/null 2>&1 || \
+    aws ecr create-repository --repository-name "$repo_name" --region "$REGION" >/dev/null
+ 
+  local account_id
+  account_id=$(aws sts get-caller-identity --query Account --output text)
+ 
+  set_env ECR_REGISTRY "${account_id}.dkr.ecr.${REGION}.amazonaws.com"
+}
+ 
+
 ################################################################################
 # PREPARE ROLE AND PROFILE FOR INSTANCE
 # use : aws_prepare_role_and_profile <role_name> <profile_name> <policy_arn>

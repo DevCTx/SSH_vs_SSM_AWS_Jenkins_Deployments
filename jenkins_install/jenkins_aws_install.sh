@@ -23,7 +23,7 @@ source ../env_install/env_shared_library.sh
 : "${JENKINS_EC2_ID:?Run aws_ec2_install/aws_ec2_jenkins_install.sh first}"
 
 JENKINS_EC2_KEY="../aws_ec2_install/jenkins-ec2-key.pem"
-APP_EC2_KEY="../aws_ec2_install/app-ec2-key.pem"
+APP_EC2_KEY="../aws_ec2_install/app-ec2-ssh-key.pem"
 REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
 SSH_OPTS=(-o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}")
 

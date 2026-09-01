@@ -132,7 +132,7 @@ test_agent jenkins-docker-aws-agent "docker --version && aws --version" -v /var/
 # ensure that the two files mounted as volumes already exist as actual files (even if empty)
 ####################################################################################################
 [ -f controller/jenkins-config.yaml ] || touch controller/jenkins-config.yaml
-[ -f ../aws_ec2_install/app-ec2-key.pem ] || touch ../aws_ec2_install/app-ec2-key.pem
+[ -f ../aws_ec2_install/app-ec2-ssh-key.pem ] || touch ../aws_ec2_install/app-ec2-ssh-key.pem
  
 ####################################################################################################
 # Start the controller and run jenkins-config.yaml at the first boot

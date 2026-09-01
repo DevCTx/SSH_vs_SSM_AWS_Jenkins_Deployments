@@ -78,7 +78,7 @@ credentials:
               username: "ec2-user"
               privateKeySource:
                 directEntry:
-                  privateKey: "${readFile:/run/secrets/app-ec2-key.pem}"
+                  privateKey: "${readFile:/run/secrets/app-ec2-ssh-key.pem}"
 
 jobs:
   # AGENT TESTINGS: allows to check every agent declared for this configuration into Jenkins.

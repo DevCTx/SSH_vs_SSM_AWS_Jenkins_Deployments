@@ -11,10 +11,11 @@
 
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
-
+ 
 source ../env_install/env_shared_library.sh
-
+ 
 CONFIG_NAME="${1:-}"
+
 
 ####################################################################################################
 # Switch to a different config if specified
@@ -25,25 +26,24 @@ if [ -n "${CONFIG_NAME}" ]; then
   cp "${SOURCE_FILE}" ../jenkins_install/controller/jenkins-config.yaml
   echo "Switched to ${SOURCE_FILE}"
 fi
-
+ 
 [ -f ../jenkins_install/controller/jenkins-config.yaml ] || {
   echo "../jenkins_install/controller/jenkins-config.yaml not found"
   echo "use:  $0 <config-name>.yaml"
   exit 1
 }
 
+
 ####################################################################################################
 # Trigger the JCasC hot reload via the Jenkins REST API.
 ####################################################################################################
 JENKINS_URL="http://${JENKINS_INGRESS_IP}:8080"
 AUTH=(-u "${JENKINS_ADMIN_USER}:${JENKINS_ADMIN_PASSWORD}")
-
+ 
 echo ""
 echo "=== Reloading JCasC configuration ==="
  
-# Cookie jar shared between the two calls: with basic auth alone (no
-# session persisted), Jenkins may issue the crumb for one implicit session
-# and reject it on the next request as belonging to a different one.
+# Cookie jar shared between calls, otherwise the crumb can be rejected.
 COOKIE_JAR=$(mktemp)
  
 CRUMB=$(curl -s -c "${COOKIE_JAR}" "${AUTH[@]}" \
@@ -64,6 +64,7 @@ rm -f /tmp/reload_response.html
  
 echo "✅ Configuration reloaded."
 
+
 ####################################################################################################
 # Delete any OTHER combo job 
 ####################################################################################################
@@ -78,12 +79,19 @@ case "${CONFIG_NAME}" in
 esac
  
 if [ -n "${ACTIVE_JOB}" ]; then
-  CRUMB=$(curl -s "${AUTH[@]}" \
+  DELETE_COOKIE_JAR=$(mktemp)
+  CRUMB=$(curl -s -c "${DELETE_COOKIE_JAR}" "${AUTH[@]}" \
     "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)")
  
   for job in "${ALL_JOBS[@]}"; do
     [ "${job}" = "${ACTIVE_JOB}" ] && continue
-    curl -s -o /dev/null "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/job/${job}/doDelete" || true
+    STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+      -b "${DELETE_COOKIE_JAR}" "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/job/${job}/doDelete")
+    # 404 just means it was already gone -- fine. Anything else worth flagging.
+    if [ "${STATUS}" != "200" ] && [ "${STATUS}" != "302" ] && [ "${STATUS}" != "404" ]; then
+      echo "⚠️  Could not delete job ${job} (HTTP ${STATUS})"
+    fi
   done
+  rm -f "${DELETE_COOKIE_JAR}"
   echo "✅ Only ${ACTIVE_JOB} remains active."
 fi

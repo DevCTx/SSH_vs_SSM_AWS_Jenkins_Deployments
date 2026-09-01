@@ -124,7 +124,7 @@ echo "Check on Jenkins for current status. Still waiting..."
  
 check_running_image() {
   if [ "${TRANSPORT}" = "ssh" ]; then
-    ssh -o StrictHostKeyChecking=no -i ./aws_ec2_install/app-ec2-key.pem \
+    ssh -o StrictHostKeyChecking=no -i ./aws_ec2_install/app-ec2-ssh-key.pem \
       "ec2-user@${APP_EC2_IP}" \
       "docker ps --filter name=${APP_CONTAINER_NAME} --format '{{.Image}}'"
   else

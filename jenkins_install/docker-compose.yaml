@@ -43,7 +43,7 @@ services:
       # without rebuilding this image.
       - ./controller/jenkins-config.yaml:/var/jenkins_home/casc/jenkins-config.yaml:ro
       # Only used by the SSH-transport credential in configs/*-ssh.yaml
-      - ../aws_ec2_install/app-ec2-key.pem:/run/secrets/app-ec2-key.pem:ro
+      - ../aws_ec2_install/app-ec2-ssh-key.pem:/run/secrets/app-ec2-ssh-key.pem:ro
 
 volumes:
   jenkins_home: {}

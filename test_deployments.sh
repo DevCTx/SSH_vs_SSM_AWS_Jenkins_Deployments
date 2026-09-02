@@ -63,7 +63,21 @@ if ! TOKEN=$(get_imds_token) || [ -z "${TOKEN}" ]; then
     sleep 5
   done
 else
-  echo "⚠️  Jenkins runs on AWS — recreate its controller manually over SSH if this combo's instance is new."
+  echo "=== Refreshing the Jenkins controller on AWS so it picks up any new instance details ==="
+  JENKINS_EC2_KEY="aws_ec2_install/jenkins-ec2-ssh-key.pem"
+  REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
+  SSH_OPTS=(-o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}")
+ 
+  scp "${SSH_OPTS[@]}" "${ENV_FILE}" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
+  ssh "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
+    "cd ${REMOTE_HOME}/jenkins_install && sudo docker compose --env-file ../.env up -d controller"
+ 
+  echo "Waiting for Jenkins to finish restarting..."
+  for i in $(seq 1 24); do
+    STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_EC2_IP}:8080/login" 2>/dev/null || echo "000")
+    [ "${STATUS}" = "200" ] && break
+    sleep 5
+  done
 fi
 
 

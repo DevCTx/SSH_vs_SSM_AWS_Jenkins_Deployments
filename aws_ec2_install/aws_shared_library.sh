@@ -175,7 +175,7 @@ aws_prepare_role_and_profile() {
   local policy_arn="$3"
 
   echo "" >&2
-  echo "Create a SSM Role ($role_name) and Profile ($profile_name) for an EC2 instance" >&2
+  echo "Prepare IAM role ($role_name) and profile ($profile_name) for the EC2 instance, attaching $policy_arn" >&2
 
   # The SSM agent is already installed on Amazon Linux 2023 
   # But the instance needs an IAM Role with a SSM policy to use it

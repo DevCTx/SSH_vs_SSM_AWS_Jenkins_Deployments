@@ -89,7 +89,7 @@ echo "  Test access : ssh -i $(dirname "$0")/$JENKINS_EC2_KEY.pem ec2-user@${JEN
 if [ "${TRANSPORT}" = "ssm" ]; then
   echo "  SSM enabled  : may take 30-60s to be activated on first boot"
   echo "  Test access  : aws ssm send-command --instance-ids ${JENKINS_EC2_ID} \\"
-  echo "                   --document-name \"AWS-RunShellScript\" --parameters commands=\"echo ok\")"
+  echo "                   --document-name \"AWS-RunShellScript\" --parameters commands=\"echo ok\" "
 fi
 echo "=================================================="
 echo ""

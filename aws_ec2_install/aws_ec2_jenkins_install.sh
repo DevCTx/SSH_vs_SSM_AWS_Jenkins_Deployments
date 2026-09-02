@@ -4,7 +4,7 @@
 #   - grant an admin SSH access 
 #   - and a potential IAM role accorded to the chosen registry/transport options
 #      --registry dockerhub --transport ssh -> no IAM role needed at all.
-#      --registry  ecr   -> $ECR_FULL_ROLE      (aws ecr get-login-password from Jenkins)
+#      --registry  ecr   -> $ECR_FULL_ROLE      (aws ecr get-login-password + cleanup from Jenkins)
 #      --transport ssm   -> $SSM_INSTANCE_ROLE  (aws ssm send-command from Jenkins)
 #
 set -e
@@ -33,10 +33,10 @@ aws_prepare_install_docker_script
 
 ####################################################################################################
 # Admin SSH access: Lets the operator connect to the Jenkins host and run jenkins_aws_install.sh 
-# always created, regardless of the deployment transport (SSH/SSM) used later by the pipelines
+# always created, regardless of the deployment transport (SSH/SSM) used later by the pipelines
 ####################################################################################################
 JENKINS_EC2_NAME=jenkins-ec2
-JENKINS_EC2_KEY=jenkins-ec2-key     # SSH KEY for connecting local to JENKINS-EC2
+JENKINS_EC2_KEY=jenkins-ec2-ssh-key     # SSH KEY for connecting local to JENKINS-EC2
 JENKINS_EC2_SG=jenkins-ec2-sg       # Security group for JENKINS-EC2 Instance 
 
 # Create a SSH Key to let local connect to the Jenkins-EC2
@@ -45,7 +45,7 @@ aws_create_SSH_key "${JENKINS_EC2_KEY}"
 # Security group + rules for ports TCP 22 and 8080 opened
 set_env JENKINS_EC2_SG_ID "$(aws_create_sg $JENKINS_EC2_SG)"
 aws_open_ingress_port $JENKINS_EC2_SG_ID "22" "$(get_local_public_ipV4)/32"   # For local script to connect
-aws_open_ingress_port $JENKINS_EC2_SG_ID "8080" "0.0.0.0/0"   # For Jenkins UI AND github webhook
+aws_open_ingress_port $JENKINS_EC2_SG_ID "8080" "0.0.0.0/0"   # For Jenkins UI AND github webhook
 
 
 ####################################################################################################
@@ -89,7 +89,7 @@ echo "  Test access : ssh -i $(dirname "$0")/$JENKINS_EC2_KEY.pem ec2-user@${JEN
 if [ "${TRANSPORT}" = "ssm" ]; then
   echo "  SSM enabled  : may take 30-60s to be activated on first boot"
   echo "  Test access  : aws ssm send-command --instance-ids ${JENKINS_EC2_ID} \\"
-  echo "                   --document-name \"AWS-RunShellScript\" --parameters commands=\"echo ok\" "
+  echo "                   --document-name \"AWS-RunShellScript\" --parameters commands=\"echo ok\""
 fi
 echo "=================================================="
 echo ""

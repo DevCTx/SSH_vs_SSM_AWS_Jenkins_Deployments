@@ -103,7 +103,7 @@ set_env DOCKER_GID "$(stat -c '%g' /var/run/docker.sock)"
 set_env JENKINS_INGRESS_IP "$(hostname -I | awk '{print $1}')"
 
 ####################################################################################################
-# Build agents. A single docker-capable agent handles every combo. --env-file ../.env: sudo drops DOCKER_GID, so Compose is told where to find it..
+# Build agents. A single docker-capable agent handles every combo. --env-file ../.env: sudo drops DOCKER_GID, so Compose is told where to find it.
 ####################################################################################################
 
 # separated to be sure that the build of base-agent finishs 
@@ -143,14 +143,21 @@ echo "Waiting 15s for the Jenkins controller to start..."
 sleep 15
 
 echo ""
-echo "=================================================="
-echo "  Jenkins ready locally : http://${JENKINS_INGRESS_IP}:8080"
-echo "  Login : ${JENKINS_ADMIN_USER} / ${JENKINS_ADMIN_PASSWORD}"
-echo ""
-echo "  Next steps:"
-echo "  1. Set the GitHub Webhook (with a Cloudflare tunnel automatically)"
-echo "     ./jenkins_install/setup_github_webhook.sh"
-echo "  2. Run a test deployment for the combo of your choice"
-echo "     ./test_deployments.sh <dockerhub|ecr> <ssh|ssm>"
-echo "=================================================="
+if TOKEN=$(get_imds_token) && [ -n "${TOKEN}" ]; then
+  # Running on AWS: this is the remote step of jenkins_aws_install.sh, which
+  # prints its own accurate banner (public IP, correct next steps) once this
+  # SSH session ends -- avoid a second, misleading one with the private IP.
+  echo "Jenkins controller started on this instance."
+else
+  echo "=================================================="
+  echo "  Jenkins ready locally : http://${JENKINS_INGRESS_IP}:8080"
+  echo "  Login : ${JENKINS_ADMIN_USER} / ${JENKINS_ADMIN_PASSWORD}"
+  echo ""
+  echo "  Next steps:"
+  echo "  1. Set the GitHub Webhook (with a Cloudflare tunnel automatically)"
+  echo "     ./jenkins_install/setup_github_webhook.sh"
+  echo "  2. Run a test deployment for the combo of your choice"
+  echo "     ./test_deployments.sh <dockerhub|ecr> <ssh|ssm>"
+  echo "=================================================="
+fi
 echo ""

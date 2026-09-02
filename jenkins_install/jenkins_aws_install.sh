@@ -30,7 +30,7 @@ SSH_OPTS=(-o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}")
 echo ""
 echo "=== Preparing remote folders on ${JENKINS_EC2_IP} ==="
 ssh "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
-  "mkdir -p ${REMOTE_HOME}/env_install ${REMOTE_HOME}/aws_ec2_install ${REMOTE_HOME}/jenkins_install"
+  "mkdir -p ${REMOTE_HOME}/env_install ${REMOTE_HOME}/aws_ec2_install ${REMOTE_HOME}/jenkins_install ${REMOTE_HOME}/jenkins_configs"
 
 echo ""
 echo "=== Transferring env_install/, jenkins_install/, jenkins_configs/ and .env ==="
@@ -53,7 +53,7 @@ fi
 echo ""
 echo "=== Running jenkins_local_install.sh remotely ==="
 ssh -t "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
-  "sudo ${REMOTE_HOME}/jenkins_install/jenkins_local_install.sh ${REGISTRY} ${TRANSPORT}"
+  "${REMOTE_HOME}/jenkins_install/jenkins_local_install.sh ${REGISTRY} ${TRANSPORT}"
 
 # Jenkins runs on AWS, so the operator reaches it through its public IP
 set_env JENKINS_INGRESS_IP "${JENKINS_EC2_IP}"

@@ -35,6 +35,19 @@ fi
 
 
 ####################################################################################################
+# If Jenkins runs on AWS, push the local config file to the remote instance first 
+####################################################################################################
+if [ -n "${JENKINS_EC2_ID:-}" ]; then
+  JENKINS_EC2_KEY="../aws_ec2_install/jenkins-ec2-key.pem"
+  REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
+  echo "=== Jenkins runs on AWS: pushing the config file to ${JENKINS_EC2_IP} ==="
+  scp -o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}" \
+    ../jenkins_install/controller/jenkins-config.yaml \
+    "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/jenkins_install/controller/jenkins-config.yaml"
+fi
+
+
+####################################################################################################
 # Trigger the JCasC hot reload via the Jenkins REST API.
 ####################################################################################################
 JENKINS_URL="http://${JENKINS_INGRESS_IP}:8080"

@@ -46,10 +46,10 @@ echo "=== Reloading JCasC configuration ==="
 # Cookie jar shared between calls, otherwise the crumb can be rejected.
 COOKIE_JAR=$(mktemp)
  
-CRUMB=$(curl -s -c "${COOKIE_JAR}" "${AUTH[@]}" \
+CRUMB=$(curl -s --max-time 15 -c "${COOKIE_JAR}" "${AUTH[@]}" \
   "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)")
  
-STATUS=$(curl -s -o /tmp/reload_response.html -w '%{http_code}' \
+STATUS=$(curl -s --max-time 15 -o /tmp/reload_response.html -w '%{http_code}' \
   -b "${COOKIE_JAR}" "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/configuration-as-code/reload")
  
 rm -f "${COOKIE_JAR}"
@@ -80,12 +80,12 @@ esac
  
 if [ -n "${ACTIVE_JOB}" ]; then
   DELETE_COOKIE_JAR=$(mktemp)
-  CRUMB=$(curl -s -c "${DELETE_COOKIE_JAR}" "${AUTH[@]}" \
+  CRUMB=$(curl -s --max-time 15 -c "${DELETE_COOKIE_JAR}" "${AUTH[@]}" \
     "${JENKINS_URL}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)")
  
   for job in "${ALL_JOBS[@]}"; do
     [ "${job}" = "${ACTIVE_JOB}" ] && continue
-    STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+    STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' \
       -b "${DELETE_COOKIE_JAR}" "${AUTH[@]}" -H "${CRUMB}" -X POST "${JENKINS_URL}/job/${job}/doDelete")
     # 404 just means it was already gone -- fine. Anything else worth flagging.
     if [ "${STATUS}" != "200" ] && [ "${STATUS}" != "302" ] && [ "${STATUS}" != "404" ]; then

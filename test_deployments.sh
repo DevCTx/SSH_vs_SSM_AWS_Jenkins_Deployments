@@ -58,7 +58,7 @@ if ! TOKEN=$(get_imds_token) || [ -z "${TOKEN}" ]; then
  
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
-    STATUS=$(curl -s -o /dev/null -w '%{http_code}' "http://${JENKINS_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
+    STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
     [ "${STATUS}" = "200" ] && break
     sleep 5
   done
@@ -87,7 +87,7 @@ echo "=== Loading config: ${CONFIG_NAME}.yaml ==="
 ####################################################################################################
 get_latest_tag() {
   if [ "${REGISTRY}" = "dockerhub" ]; then
-    curl -s "https://hub.docker.com/v2/repositories/${DOCKER_USERNAME}/${APP_IMAGE_NAME}/tags?page_size=1&ordering=last_updated" \
+    curl -s --max-time 15 "https://hub.docker.com/v2/repositories/${DOCKER_USERNAME}/${APP_IMAGE_NAME}/tags?page_size=1&ordering=last_updated" \
       | jq -r '.results[0].name // empty'
   else
     aws ecr describe-images --repository-name "${APP_IMAGE_NAME}" \

@@ -61,9 +61,9 @@ github_api() {
   # split apart from the JSON body once the call returns.
   local response
   if [ -n "$body" ]; then
-    response=$(curl -s -w $'\n%{http_code}' -X "$method" "${AUTH[@]}" "$url" -d "$body")
+    response=$(curl -s --max-time 15 -w $'\n%{http_code}' -X "$method" "${AUTH[@]}" "$url" -d "$body")
   else
-    response=$(curl -s -w $'\n%{http_code}' -X "$method" "${AUTH[@]}" "$url")
+    response=$(curl -s --max-time 15 -w $'\n%{http_code}' -X "$method" "${AUTH[@]}" "$url")
   fi
  
   # Display the error if exists

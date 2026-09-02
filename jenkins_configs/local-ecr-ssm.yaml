@@ -67,10 +67,7 @@ credentials:
               username: "${GITHUB_OWNER}"
               password: "${GITHUB_JENKINS_TOKEN}"
 
-          # Jenkins runs LOCAL: no instance IAM role backs the AWS CLI, so an
-          # explicit AWS access key/secret is required — shared by BOTH
-          # "aws ecr get-login-password" (build stage) and "aws ssm
-          # send-command" (deploy stage), same IAM user for both calls.
+          # Jenkins runs LOCAL: no instance IAM role backs the AWS CLI, so an explicit AWS access key/secret is required
           - aws:
               scope: GLOBAL
               id: "aws-creds"

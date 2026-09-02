@@ -34,8 +34,8 @@ AUTH=(-H "Authorization: Bearer $GITHUB_JENKINS_TOKEN" -H "Accept: application/v
 command -v curl >/dev/null || { echo "Install curl: sudo apt install -y curl"; exit 1; }
 
 if TOKEN=$(get_imds_token) && [ -n "${TOKEN}" ]; then
-  : "${JENKINS_INGRESS_IP:?Set JENKINS_INGRESS_IP in .env first}"
-  JENKINS_URL="http://${JENKINS_INGRESS_IP}:8080"
+  : "${JENKINS_EC2_IP:?Set JENKINS_EC2_IP in .env first}"
+  JENKINS_URL="http://${JENKINS_EC2_IP}:8080"
   echo ""
   echo "Running on AWS — Use the direct Jenkins URL : ${JENKINS_URL}"
 else

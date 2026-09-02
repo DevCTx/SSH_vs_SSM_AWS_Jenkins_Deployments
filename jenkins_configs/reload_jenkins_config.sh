@@ -38,7 +38,7 @@ fi
 # If Jenkins runs on AWS, push the local config file to the remote instance first 
 ####################################################################################################
 if [ -n "${JENKINS_EC2_ID:-}" ]; then
-  JENKINS_EC2_KEY="../aws_ec2_install/jenkins-ec2-key.pem"
+  JENKINS_EC2_KEY="../aws_ec2_install/jenkins-ec2-ssh-key.pem"
   REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
   echo "=== Jenkins runs on AWS: pushing the config file to ${JENKINS_EC2_IP} ==="
   scp -o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}" \

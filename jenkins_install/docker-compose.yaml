@@ -30,19 +30,13 @@ services:
       - "50000:50000"   # indbound agent port
     group_add:
       - "${DOCKER_GID}" # access to Docker socket
-    # Loads every variable from the repo's .env as-is, so JCasC's own
-    # ${VAR} substitution (configs/*.yaml) can reach anything written there
-    # by the install/provisioning scripts, without listing each one here.
     env_file:
       - ../.env
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Access to the host's Docker daemon
       - jenkins_home:/var/jenkins_home            # persists Jenkins data
-      # jenkins-config.yaml is mounted, not COPYed at build time, so it can
-      # be swapped/edited and hot-reloaded (see reload_jenkins_config.sh)
-      # without rebuilding this image.
       - ./controller/jenkins-config.yaml:/var/jenkins_home/casc/jenkins-config.yaml:ro
-      # Only used by the SSH-transport credential in configs/*-ssh.yaml
+      # Used by the SSH-transport credential in configs/*-ssh.yaml
       - ../aws_ec2_install/app-ec2-ssh-key.pem:/run/secrets/app-ec2-ssh-key.pem:ro
 
 volumes:

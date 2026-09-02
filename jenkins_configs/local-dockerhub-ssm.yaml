@@ -71,8 +71,7 @@ credentials:
           - string: { scope: GLOBAL, id: "dockerhub-username", secret: "${DOCKER_USERNAME}" }
           - string: { scope: GLOBAL, id: "dockerhub-pat",      secret: "${DOCKERHUB_PAT}" }
 
-          # Jenkins runs LOCAL: no instance IAM role backs "aws ssm send-command",
-          # so an explicit AWS access key/secret is required here.
+          # Jenkins runs LOCAL: no instance IAM role backs "aws ssm send-command" so an explicit AWS access key/secret is required.
           - aws:
               scope: GLOBAL
               id: "aws-creds"

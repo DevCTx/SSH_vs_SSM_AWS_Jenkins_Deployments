@@ -67,8 +67,7 @@ credentials:
               username: "${GITHUB_OWNER}"
               password: "${GITHUB_JENKINS_TOKEN}"
 
-          # Jenkins runs LOCAL: no instance IAM role backs "aws ecr get-login-password",
-          # so an explicit AWS access key/secret is required here.
+          # Jenkins runs LOCAL: no instance IAM role backs "aws ecr get-login-password" so an explicit AWS access key/secret is required.
           - aws:
               scope: GLOBAL
               id: "aws-creds"

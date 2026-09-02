@@ -20,8 +20,8 @@ RUN getent group docker \
     &&  usermod -aG docker jenkins
 
 # AWS CLI: needed by every combo where 
-# either REGISTRY=ecr ("aws ecr get-login-password") 
-# or TRANSPORT=ssm ("aws ssm send-command").
+# - either REGISTRY=ecr ("aws ecr get-login-password") 
+# - or TRANSPORT=ssm ("aws ssm send-command").
 # This single image also runs the deploy stage, so it must have it too.
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \

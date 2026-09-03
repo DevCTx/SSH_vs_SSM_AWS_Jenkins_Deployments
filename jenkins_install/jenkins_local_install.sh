@@ -1,15 +1,12 @@
 #!/bin/bash
 #
 # jenkins_local_install.sh
-# Installs the Jenkins core stack locally via Docker Compose 
-# (controller + agents, no pipelines yet), then sets up the GitHub webhook.
+# Installs the Jenkins core stack (controller + agents, no pipelines yet)
+# and sets up the GitHub webhook. Combo-agnostic -- registry/transport are
+# only picked later, at test_deployments.sh time.
 #
-# Combo-agnostic: no registry/transport to pick here -- that only happens
-# later, at test_deployments.sh time.
-#
-# A local machine has no reliable public IP for the GitHub webhook, so 
-# a Cloudflare tunnel is automatically created for that.
-# (see setup_github_webhook.sh)
+# Locally, no public IP exists for the webhook, so a Cloudflare tunnel is
+# created automatically (see setup_github_webhook.sh).
 #
 # Usage: ./jenkins_local_install.sh
 
@@ -39,8 +36,7 @@ if ! grep -q "^JENKINS_ADMIN_PASSWORD=" "${ENV_FILE}" 2>/dev/null; then
 fi
 
 ####################################################################################################
-# PREREQUISITES : Verify Docker, Compose and Buildx on the host 
-# Set as block to be able to run it as root privilege (needed for docker.pgp and docker daemon)
+# PREREQUISITES: install Docker + Compose + Buildx if missing (needs root).
 ####################################################################################################
 command -v docker >/dev/null || {
   echo ""
@@ -51,11 +47,8 @@ set -e
 if [ -f /etc/debian_version ]; then
   apt-get update
   apt-get install -y ca-certificates curl gnupg
- 
-  # Download the docker key to let the system accept to add a new docker repository source
-  # because the standard Ubuntu/Debian package (docker.io) is often outdated and does not 
-  # reliably include the Compose v2/Buildx plugins that the script requires, 
-  # unlike the official Docker repository.
+
+  # docker.io is often outdated and lacks the Compose v2/Buildx plugins.
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
     | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -68,24 +61,37 @@ if [ -f /etc/debian_version ]; then
   apt-get update
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 else
-  # Contrary to Debian/Ubuntu, AL2023 maintains its own docker package at a reasonably up-to-date version
-  yum install -y yum-utils
-  yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-  yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  # AL2023 has its own docker package -- no repo needed. Compose/Buildx
+  # ship as separate plugin binaries.
+  yum install -y docker
+  mkdir -p /usr/local/lib/docker/cli-plugins
+  curl -fsSL --max-time 60 https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose
+  chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  BUILDX_VERSION="v0.35.0"
+  curl -SL --max-time 60 "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
+    -o /usr/local/lib/docker/cli-plugins/docker-buildx
+  chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 fi
 systemctl enable --now docker
 INSTALL_DOCKER
 }
 
+# On AWS, user-data installs Docker async -- binary can exist before it's ready.
+echo "Waiting for Docker to be ready..."
+for i in $(seq 1 24); do
+  sudo docker info >/dev/null 2>&1 && sudo docker compose version >/dev/null 2>&1 && break
+  sleep 5
+done
+
 set_env DOCKER_GID "$(stat -c '%g' /var/run/docker.sock)"
 set_env JENKINS_INGRESS_IP "$(hostname -I | awk '{print $1}')"
 
 ####################################################################################################
-# Build agents. A single docker-capable agent handles every combo. --env-file ../.env: sudo drops DOCKER_GID, so Compose is told where to find it.
+# Build agents. --env-file ../.env: sudo drops DOCKER_GID, so Compose needs it explicitly.
 ####################################################################################################
 
-# separated to be sure that the build of base-agent finishs 
-# before the start of the others who depend of it
+# base-agent first: the others are built FROM it.
 sudo docker compose --env-file ../.env build base-agent
 sudo docker compose --env-file ../.env build maven-agent
 sudo docker compose --env-file ../.env build docker-aws-agent
@@ -106,15 +112,14 @@ test_agent jenkins-maven-agent "java -version && mvn -v"
 test_agent jenkins-docker-aws-agent "docker --version && aws --version" -v /var/run/docker.sock:/var/run/docker.sock
 
 ####################################################################################################
-# ensure that the two files mounted as volumes already exist as actual files (even if empty)
+# Files mounted as volumes must exist beforehand, even empty.
 ####################################################################################################
 [ -f controller/jenkins-config.yaml ] || touch controller/jenkins-config.yaml
 [ -f ../aws_ec2_install/app-ec2-ssh-key.pem ] || touch ../aws_ec2_install/app-ec2-ssh-key.pem
 
 ####################################################################################################
-# Start the controller and run jenkins-config.yaml at the first boot
-# Jenkins has any pipeline — this script only brings up the empty core.
-# The configuration jenkins-config.yaml needs to be copied from a desired configs/*.yaml before
+# Start the empty controller core -- no pipeline config loaded yet
+# (reload_jenkins_config.sh handles that later, per combo).
 ####################################################################################################
 sudo docker compose --env-file ../.env up -d --build controller
 echo "Waiting 15s for the Jenkins controller to start..."
@@ -122,9 +127,10 @@ sleep 15
 
 # Update GitHub webhook with a token
 TOKEN=$(get_imds_token)
+
 export TOKEN
 ./setup_github_webhook.sh
- 
+
 echo ""
 if [ -n "${TOKEN}" ]; then
   echo "Jenkins controller started on this instance."
@@ -134,6 +140,5 @@ else
   echo "  Login : ${JENKINS_ADMIN_USER} / ${JENKINS_ADMIN_PASSWORD}"
   echo "=================================================="
 fi
-
 unset TOKEN
 echo ""

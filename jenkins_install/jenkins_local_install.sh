@@ -116,16 +116,15 @@ test_agent jenkins-base-agent  "java -version && git --version"
 test_agent jenkins-maven-agent "java -version && mvn -v"
 test_agent jenkins-docker-aws-agent "docker --version && aws --version" -v /var/run/docker.sock:/var/run/docker.sock
 
-####################################################################################################
-# Files mounted as volumes must exist beforehand, even empty.
-####################################################################################################
-: > controller/jenkins-config.yaml  # creates if doesn't exist and empties if exists (unlike touch)
-[ -f ../aws_ec2_install/app-ec2-ssh-key.pem ] || touch ../aws_ec2_install/app-ec2-ssh-key.pem
 
 ####################################################################################################
-# Start the empty controller core -- no pipeline config loaded yet
-# (reload_jenkins_config.sh handles that later, per combo).
+# Reset to a neutral default (auth on, no combo job) every install.
 ####################################################################################################
+cp ../jenkins_configs/default.yaml controller/jenkins-config.yaml
+[ -f ../aws_ec2_install/app-ec2-ssh-key.pem ] || touch ../aws_ec2_install/app-ec2-ssh-key.pem
+
+
+# Start the controller -- reload_jenkins_config.sh loads a real combo later.
 sudo docker compose --env-file ../.env up -d --build controller
 echo "Waiting 15s for the Jenkins controller to start..."
 sleep 15

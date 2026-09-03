@@ -1,0 +1,92 @@
+jenkins:
+
+  # Controller orchestrates only, never builds. Jobs run on separate agents.
+  numExecutors: 0
+
+  # Authentication via DEFINED ADMIN user only (No LDAP or SSO)
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USER}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+
+  # And this user will get ALL ADMIN privileges
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+        - user:
+            name: "${JENKINS_ADMIN_USER}"
+            permissions:
+              - "Overall/Administer"
+
+  # Will use a docker cloud with every agent, regardless of the combo picked later
+  clouds:
+    - docker:
+        name: "docker-cloud"
+        dockerApi:
+          dockerHost:
+            uri: "unix:///var/run/docker.sock"
+
+        templates:
+
+          - labelString: "base-agent"
+            dockerTemplateBase: { image: "jenkins-base-agent" }
+            remoteFs: "/home/jenkins"
+            connector: { attach: {} }
+            pullStrategy: PULL_NEVER
+            instanceCapStr: "2"
+
+          - labelString: "maven-agent"
+            dockerTemplateBase: { image: "jenkins-maven-agent" }
+            remoteFs: "/home/jenkins"
+            connector: { attach: {} }
+            pullStrategy: PULL_NEVER
+            instanceCapStr: "2"
+
+          - labelString: "docker-aws-agent"
+            dockerTemplateBase:
+              image: "jenkins-docker-aws-agent"
+              mounts:
+                - "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock"
+              extraGroups: [ "${DOCKER_GID}" ]
+            remoteFs: "/home/jenkins"
+            connector: { attach: {} }
+            pullStrategy: PULL_NEVER
+            instanceCapStr: "2"
+
+jobs:
+  # AGENT TESTINGS only: the neutral default before any combo is loaded.
+  # No deployment job, no registry/AWS credential -- reload_jenkins_config.sh
+  # replaces this entirely once a combo is picked.
+  - script: >
+      pipelineJob('agent-testings') {
+        definition {
+          cps {
+            sandbox(true)
+            script('''
+              pipeline {
+                agent none
+                stages {
+                  stage('Test Base') {
+                    agent { label 'base-agent' }
+                    steps { sh 'java -version && git --version' }
+                  }
+                  stage('Test Maven') {
+                    agent { label 'maven-agent' }
+                    steps { sh 'java -version && mvn -v' }
+                  }
+                  stage('Test Docker') {
+                    agent { label 'docker-aws-agent' }
+                    steps { sh 'docker --version && aws --version' }
+                  }
+                }
+              }
+            '''.stripIndent())
+          }
+        }
+      }
+
+unclassified:
+  location:
+    url: "http://${JENKINS_INGRESS_IP}:8080/"

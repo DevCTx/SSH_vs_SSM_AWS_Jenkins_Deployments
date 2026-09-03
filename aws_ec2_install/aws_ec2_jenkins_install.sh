@@ -57,7 +57,7 @@ JENKINS_EC2_ROLE="jenkins-ec2-role"
 JENKINS_EC2_PROFILE="jenkins-ec2-profile"
  
 if [ "${TRANSPORT}" = "ssm" ]; then
-  aws_prepare_role_and_profile "${JENKINS_EC2_ROLE}" "${JENKINS_EC2_PROFILE}" "${SSM_INSTANCE_ROLE}"
+  aws_prepare_role_and_profile "${JENKINS_EC2_ROLE}" "${JENKINS_EC2_PROFILE}" "${SSM_CALLER_ROLE}"
   NEEDS_PROFILE=true
 fi
  

@@ -97,15 +97,12 @@ aws_delete_SSH_key() {
 }
 
 
-
 # Policies available for aws_prepare_role_and_profile or aws_delete_role_and_profile.
-SSM_INSTANCE_ROLE="arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+SSM_INSTANCE_ROLE="arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"      # receives the orders sent
+SSM_CALLER_ROLE="arn:aws:iam::aws:policy/AmazonSSMFullAccess"                 # Send the orders.
 ECR_PULL_ROLE="arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 ECR_FULL_ROLE="arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"  # Needed for delete
 
-# Different from SSM_INSTANCE_ROLE: that one lets an INSTANCE be managed by
-# SSM; this one lets a CALLER (Jenkins itself) issue "aws ssm send-command".
-SSM_CALLER_ROLE="arn:aws:iam::aws:policy/AmazonSSMFullAccess"
 
 ################################################################################
 # ENSURE A LOCAL IAM USER + ACCESS KEY EXISTS FOR 'aws-creds'

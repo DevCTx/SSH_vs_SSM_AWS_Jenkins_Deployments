@@ -119,7 +119,7 @@ test_agent jenkins-docker-aws-agent "docker --version && aws --version" -v /var/
 ####################################################################################################
 # Files mounted as volumes must exist beforehand, even empty.
 ####################################################################################################
-[ -f controller/jenkins-config.yaml ] || touch controller/jenkins-config.yaml
+: > controller/jenkins-config.yaml  # creates if doesn't exist and empties if exists (unlike touch)
 [ -f ../aws_ec2_install/app-ec2-ssh-key.pem ] || touch ../aws_ec2_install/app-ec2-ssh-key.pem
 
 ####################################################################################################

@@ -71,7 +71,16 @@ else
   REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
   SSH_OPTS=(-o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}")
 
-  scp "${SSH_OPTS[@]}" "${ENV_FILE}" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
+  # Merge only the combo/instance-related keys into the remote .env -- never
+  # overwrite it wholesale, or machine-specific values (DOCKER_GID,
+  # JENKINS_INGRESS_IP...) would be replaced by this machine's own values.
+  REMOTE_ENV_TMP=$(mktemp)
+  scp "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env" "${REMOTE_ENV_TMP}"
+  grep -vE '^(APP_EC2_|ECR_REGISTRY=)' "${REMOTE_ENV_TMP}" > "${REMOTE_ENV_TMP}.new"
+  grep -E '^(APP_EC2_|ECR_REGISTRY=)' "${ENV_FILE}" >> "${REMOTE_ENV_TMP}.new"
+  scp "${SSH_OPTS[@]}" "${REMOTE_ENV_TMP}.new" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
+  rm -f "${REMOTE_ENV_TMP}" "${REMOTE_ENV_TMP}.new"
+
   ssh "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
     "cd ${REMOTE_HOME}/jenkins_install && sudo docker compose --env-file ../.env up -d controller"
 

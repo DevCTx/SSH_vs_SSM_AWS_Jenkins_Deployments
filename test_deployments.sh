@@ -34,7 +34,7 @@ fi
 # first time such a combo is tested, if Jenkins isn't on AWS already (where
 # the instance's own IAM role covers it instead -- see aws_ec2_jenkins_install.sh).
 ####################################################################################################
-if [ -z "${JENKINS_EC2_ID:-}" ] && { [ "${REGISTRY}" = "ecr" ] || [ "${TRANSPORT}" = "ssm" ]; }; then
+if [ "${JENKINS_TARGET:-local}" = "local" ] && { [ "${REGISTRY}" = "ecr" ] || [ "${TRANSPORT}" = "ssm" ]; }; then
   source ./aws_ec2_install/aws_shared_library.sh
   aws_prepare_local_jenkins_credentials
 fi
@@ -61,13 +61,13 @@ fi
 
 ####################################################################################################
 # Refresh the Jenkins controller: it only reads .env at creation, not on a
-# JCasC reload. Check JENKINS_EC2_ID (where Jenkins runs), not
+# JCasC reload. Check JENKINS_TARGET (where Jenkins runs), not
 # get_imds_token (this script itself always runs locally).
 ####################################################################################################
-if [ -z "${JENKINS_EC2_ID:-}" ]; then
+if [ "${JENKINS_TARGET:-local}" = "local" ]; then
   echo "=== Refreshing the local Jenkins controller so it picks up any new instance details ==="
   (cd jenkins_install && sudo docker compose --env-file ../.env up -d controller)
- 
+
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
     STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
@@ -79,24 +79,24 @@ else
   JENKINS_EC2_KEY="aws_ec2_install/jenkins-ec2-ssh-key.pem"
   REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
   SSH_OPTS=(-o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}")
- 
-  # Merge combo keys only -- keeps machine-specific values (DOCKER_GID...).
+
+  # Merge combo keys only -- keeps machine-specific values (DOCKER_GID...) intact.
   ENV_TMP="/tmp/.env.tmp"
   scp "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env" "${ENV_TMP}"
   grep -vE '^(APP_EC2_|ECR_REGISTRY=)' "${ENV_TMP}" > "${ENV_TMP}.new"
   grep -E '^(APP_EC2_|ECR_REGISTRY=)' "${ENV_FILE}" >> "${ENV_TMP}.new"
   scp "${SSH_OPTS[@]}" "${ENV_TMP}.new" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
   rm -f "${ENV_TMP}" "${ENV_TMP}.new"
- 
-  # ssh transport: also push the app key remotely.
+
+  # ssh transport: also push the app key remotely (cheap to repeat).
   if [ "${TRANSPORT}" = "ssh" ]; then
     scp "${SSH_OPTS[@]}" aws_ec2_install/app-ec2-ssh-key.pem \
       "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/aws_ec2_install/"
   fi
- 
+
   ssh "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
     "cd ${REMOTE_HOME}/jenkins_install && sudo docker compose --env-file ../.env up -d controller"
- 
+
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
     STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_EC2_IP}:8080/login" 2>/dev/null || echo "000")
@@ -111,7 +111,7 @@ fi
 ####################################################################################################
 if [ "${REGISTRY}" = "dockerhub" ] && [ "${TRANSPORT}" = "ssh" ]; then
   CONFIG_NAME="any-dockerhub-ssh"
-elif [ -n "${JENKINS_EC2_ID:-}" ]; then
+elif [ "${JENKINS_TARGET:-local}" = "aws" ]; then
   CONFIG_NAME="aws-${REGISTRY}-${TRANSPORT}"
 else
   CONFIG_NAME="local-${REGISTRY}-${TRANSPORT}"

@@ -135,8 +135,10 @@ export TOKEN
 
 echo ""
 if [ -n "${TOKEN}" ]; then
+  set_env JENKINS_TARGET "aws"
   echo "Jenkins controller started on this instance."
 else
+  set_env JENKINS_TARGET "local"
   echo "=================================================="
   echo "  Jenkins ready locally : http://${JENKINS_INGRESS_IP}:8080"
   echo "  Login : ${JENKINS_ADMIN_USER} / ${JENKINS_ADMIN_PASSWORD}"

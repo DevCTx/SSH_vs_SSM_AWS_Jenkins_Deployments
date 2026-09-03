@@ -3,9 +3,13 @@
 # jenkins_aws_install.sh
 # - Transfers env_install/, jenkins_install/, jenkins_configs/ and .env
 #   to the EC2 instance created by aws_ec2_install/aws_ec2_jenkins_install.sh
-# - then runs jenkins_local_install.sh remotely.
+# - then runs jenkins_local_install.sh remotely, which also sets up the
+#   GitHub webhook once Jenkins is up.
 #
-# Use: ./jenkins_aws_install.sh
+# No combo to pick here -- that only happens later, at test_deployments.sh
+# time.
+#
+# Usage: ./jenkins_aws_install.sh
 
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
@@ -53,6 +57,7 @@ ssh -t "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
 
 # Jenkins runs on AWS, so the operator reaches it through its public IP
 set_env JENKINS_INGRESS_IP "${JENKINS_EC2_IP}"
+set_env JENKINS_TARGET "aws"
 
 echo ""
 echo "=== Retrieving the admin credentials generated remotely ==="

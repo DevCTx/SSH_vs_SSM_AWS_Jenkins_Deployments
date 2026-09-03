@@ -37,16 +37,27 @@ fi
 
 ####################################################################################################
 # PREREQUISITES: install Docker + Compose + Buildx if missing (needs root).
+# On AWS, user-data already installs Docker in the background -- installing
+# it again here would race with that process over the same files. Just wait
+# for it instead.
 ####################################################################################################
-command -v docker >/dev/null || {
-  echo ""
-  echo "Docker is not installed — installing it needs root privileges,"
-  echo "you'll be asked for your sudo password once for this step."
-  sudo bash <<'INSTALL_DOCKER'
+if TOKEN=$(get_imds_token) && [ -n "${TOKEN}" ]; then
+  echo "Waiting for Docker (installed by user-data) to be ready..."
+  for i in $(seq 1 60); do
+    command -v docker >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1 \
+      && sudo docker compose version >/dev/null 2>&1 && break
+    sleep 5
+  done
+else
+  command -v docker >/dev/null || {
+    echo ""
+    echo "Docker is not installed — installing it needs root privileges,"
+    echo "you'll be asked for your sudo password once for this step."
+    sudo bash <<'INSTALL_DOCKER' >/dev/null
 set -e
 if [ -f /etc/debian_version ]; then
-  apt-get update
-  apt-get install -y ca-certificates curl gnupg
+  apt-get update -qq
+  apt-get install -qq -y ca-certificates curl gnupg
 
   # docker.io is often outdated and lacks the Compose v2/Buildx plugins.
   install -m 0755 -d /etc/apt/keyrings
@@ -58,31 +69,25 @@ if [ -f /etc/debian_version ]; then
   https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo ${UBUNTU_CODENAME}) stable" \
     > /etc/apt/sources.list.d/docker.list
  
-  apt-get update
-  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  apt-get update -qq
+  apt-get install -qq -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 else
   # AL2023 has its own docker package -- no repo needed. Compose/Buildx
   # ship as separate plugin binaries.
-  yum install -y docker
+  yum install -y -q docker
   mkdir -p /usr/local/lib/docker/cli-plugins
   curl -fsSL --max-time 60 https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
     -o /usr/local/lib/docker/cli-plugins/docker-compose
   chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
   BUILDX_VERSION="v0.35.0"
-  curl -SL --max-time 60 "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
+  curl -fsSL --max-time 60 "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
     -o /usr/local/lib/docker/cli-plugins/docker-buildx
   chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 fi
 systemctl enable --now docker
 INSTALL_DOCKER
-}
-
-# On AWS, user-data installs Docker async -- binary can exist before it's ready.
-echo "Waiting for Docker to be ready..."
-for i in $(seq 1 24); do
-  sudo docker info >/dev/null 2>&1 && sudo docker compose version >/dev/null 2>&1 && break
-  sleep 5
-done
+  }
+fi
 
 set_env DOCKER_GID "$(stat -c '%g' /var/run/docker.sock)"
 set_env JENKINS_INGRESS_IP "$(hostname -I | awk '{print $1}')"
@@ -126,8 +131,6 @@ echo "Waiting 15s for the Jenkins controller to start..."
 sleep 15
 
 # Update GitHub webhook with a token
-TOKEN=$(get_imds_token)
-
 export TOKEN
 ./setup_github_webhook.sh
 

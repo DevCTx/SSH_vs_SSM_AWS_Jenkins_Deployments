@@ -218,7 +218,9 @@ for i in $(seq 1 12); do
   fi
   sleep 10
 done
+
  
+echo ""
 echo "Running image on EC2: ${RUNNING_IMAGE}"
  
 if [[ "${RUNNING_IMAGE}" == *":${AFTER_TAG}" ]]; then

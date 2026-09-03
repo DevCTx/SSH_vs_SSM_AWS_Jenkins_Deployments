@@ -1,22 +1,14 @@
 #!/bin/bash
 #
 # jenkins_aws_install.sh
-# - Transfers env_install/ and jenkins_install/ folders + SSH key if needed) 
+# - Transfers env_install/, jenkins_install/, jenkins_configs/ and .env
 #   to the EC2 instance created by aws_ec2_install/aws_ec2_jenkins_install.sh
 # - then runs jenkins_local_install.sh remotely.
 #
-# Usage: ./jenkins_aws_install.sh <dockerhub|ecr> <ssh|ssm>
+# Use: ./jenkins_aws_install.sh
 
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
-
-REGISTRY="$1"
-TRANSPORT="$2"
-if [ "${REGISTRY}" != "dockerhub" ] && [ "${REGISTRY}" != "ecr" ] \
-|| [ "${TRANSPORT}" != "ssh" ] && [ "${TRANSPORT}" != "ssm" ]; then
-  echo "Use: $0 <dockerhub|ecr> <ssh|ssm>"
-  exit 1
-fi
 
 source ../env_install/env_shared_library.sh
 : "${JENKINS_EC2_IP:?Run aws_ec2_install/aws_ec2_jenkins_install.sh first}"
@@ -44,7 +36,10 @@ scp -r "${SSH_OPTS[@]}" ../jenkins_configs/. \
 scp "${SSH_OPTS[@]}" "${ENV_FILE}" \
   "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
 
-if [ "${TRANSPORT}" = "ssh" ]; then
+# The ssh key only exists once an ssh combo's app instance has been
+# created locally. If not yet, test_deployments.sh transfers it itself
+# the first time an ssh combo is actually tested.
+if [ -f "${APP_EC2_KEY}" ]; then
   echo ""
   echo "=== Transferring the app deployment SSH key ==="
   scp "${SSH_OPTS[@]}" "${APP_EC2_KEY}" \
@@ -54,7 +49,7 @@ fi
 echo ""
 echo "=== Running jenkins_local_install.sh remotely ==="
 ssh -t "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
-  "${REMOTE_HOME}/jenkins_install/jenkins_local_install.sh ${REGISTRY} ${TRANSPORT}"
+  "${REMOTE_HOME}/jenkins_install/jenkins_local_install.sh"
 
 # Jenkins runs on AWS, so the operator reaches it through its public IP
 set_env JENKINS_INGRESS_IP "${JENKINS_EC2_IP}"
@@ -72,11 +67,5 @@ echo ""
 echo "=================================================="
 echo "  Jenkins ready on AWS : http://${JENKINS_INGRESS_IP}:8080"
 echo "  Login : ${JENKINS_ADMIN_USER} / ${JENKINS_ADMIN_PASSWORD}"
-echo ""
-echo "  Next steps (run from the repo root, over SSH with aws_ec2_install/jenkins-ec2-ssh-key.pem):"
-echo "  1. Set the GitHub Webhook"
-echo "     ssh -i aws_ec2_install/jenkins-ec2-ssh-key.pem ec2-user@${JENKINS_EC2_IP} '${REMOTE_HOME}/jenkins_install/setup_github_webhook.sh'"
-echo "  2. Run a test deployment for the combo of your choice (from the repo root, not over SSH)"
-echo "     ./test_deployments.sh <dockerhub|ecr> <ssh|ssm>"
 echo "=================================================="
 echo ""

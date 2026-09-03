@@ -30,6 +30,17 @@ fi
 
 
 ####################################################################################################
+# ECR/SSM combos need AWS CLI creds -- create a local IAM user for them the
+# first time such a combo is tested, if Jenkins isn't on AWS already (where
+# the instance's own IAM role covers it instead -- see aws_ec2_jenkins_install.sh).
+####################################################################################################
+if [ -z "${JENKINS_EC2_ID:-}" ] && { [ "${REGISTRY}" = "ecr" ] || [ "${TRANSPORT}" = "ssm" ]; }; then
+  source ./aws_ec2_install/aws_shared_library.sh
+  aws_prepare_local_jenkins_credentials
+fi
+
+
+####################################################################################################
 # Create or Recreate if needed the app EC2 instance for these parameters 
 # so the SSH key / IAM profile will match REGISTRY/TRANSPORT. One persistent instance per combo.
 ####################################################################################################
@@ -50,15 +61,13 @@ fi
 
 ####################################################################################################
 # Refresh the Jenkins controller: it only reads .env at creation, not on a
-# JCasC reload, so a combo's fresh IP/ID could still be missing. Whether
-# that controller runs locally or on AWS depends on where JENKINS was
-# installed (JENKINS_EC2_ID), not on where THIS script runs (test_deployments.sh
-# always runs locally -- get_imds_token would be wrong here).
+# JCasC reload. Check JENKINS_EC2_ID (where Jenkins runs), not
+# get_imds_token (this script itself always runs locally).
 ####################################################################################################
 if [ -z "${JENKINS_EC2_ID:-}" ]; then
   echo "=== Refreshing the local Jenkins controller so it picks up any new instance details ==="
   (cd jenkins_install && sudo docker compose --env-file ../.env up -d controller)
-
+ 
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
     STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
@@ -70,20 +79,24 @@ else
   JENKINS_EC2_KEY="aws_ec2_install/jenkins-ec2-ssh-key.pem"
   REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
   SSH_OPTS=(-o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}")
-
-  # Merge only the combo/instance-related keys into the remote .env -- never
-  # overwrite it wholesale, or machine-specific values (DOCKER_GID,
-  # JENKINS_INGRESS_IP...) would be replaced by this machine's own values.
-  REMOTE_ENV_TMP=$(mktemp)
-  scp "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env" "${REMOTE_ENV_TMP}"
-  grep -vE '^(APP_EC2_|ECR_REGISTRY=)' "${REMOTE_ENV_TMP}" > "${REMOTE_ENV_TMP}.new"
-  grep -E '^(APP_EC2_|ECR_REGISTRY=)' "${ENV_FILE}" >> "${REMOTE_ENV_TMP}.new"
-  scp "${SSH_OPTS[@]}" "${REMOTE_ENV_TMP}.new" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
-  rm -f "${REMOTE_ENV_TMP}" "${REMOTE_ENV_TMP}.new"
-
+ 
+  # Merge combo keys only -- keeps machine-specific values (DOCKER_GID...).
+  ENV_TMP="/tmp/.env.tmp"
+  scp "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env" "${ENV_TMP}"
+  grep -vE '^(APP_EC2_|ECR_REGISTRY=)' "${ENV_TMP}" > "${ENV_TMP}.new"
+  grep -E '^(APP_EC2_|ECR_REGISTRY=)' "${ENV_FILE}" >> "${ENV_TMP}.new"
+  scp "${SSH_OPTS[@]}" "${ENV_TMP}.new" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
+  rm -f "${ENV_TMP}" "${ENV_TMP}.new"
+ 
+  # ssh transport: also push the app key remotely.
+  if [ "${TRANSPORT}" = "ssh" ]; then
+    scp "${SSH_OPTS[@]}" aws_ec2_install/app-ec2-ssh-key.pem \
+      "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/aws_ec2_install/"
+  fi
+ 
   ssh "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
     "cd ${REMOTE_HOME}/jenkins_install && sudo docker compose --env-file ../.env up -d controller"
-
+ 
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
     STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_EC2_IP}:8080/login" 2>/dev/null || echo "000")

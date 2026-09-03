@@ -2,39 +2,27 @@
 #
 # jenkins_local_install.sh
 # Installs the Jenkins core stack locally via Docker Compose 
-# (controller + agents, no pipelines yet)
+# (controller + agents, no pipelines yet), then sets up the GitHub webhook.
 #
-# Next, run configs/ and pipelines/ scripts.
+# Combo-agnostic: no registry/transport to pick here -- that only happens
+# later, at test_deployments.sh time.
 #
 # A local machine has no reliable public IP for the GitHub webhook, so 
 # a Cloudflare tunnel is automatically created for that.
 # (see setup_github_webhook.sh)
 #
-# Usage: ./jenkins_local_install.sh <dockerhub|ecr> <ssh|ssm>
+# Usage: ./jenkins_local_install.sh
 
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
-
-REGISTRY="$1"
-TRANSPORT="$2"
-if [ "${REGISTRY}" != "dockerhub" ] && [ "${REGISTRY}" != "ecr" ] \
-|| [ "${TRANSPORT}" != "ssh" ] && [ "${TRANSPORT}" != "ssm" ]; then
-  echo "Use: $0 <dockerhub|ecr> <ssh|ssm>"
-  exit 1
-fi
 
 source ../env_install/env_shared_library.sh
 : "${GITHUB_JENKINS_TOKEN:?Set GITHUB_JENKINS_TOKEN in .env first}"
 : "${GITHUB_OWNER:?Set GITHUB_OWNER in .env first}"
 : "${REPO:?Set REPO in .env first}"
 
-if [ "${REGISTRY}" = "dockerhub" ]; then
-  : "${DOCKER_USERNAME:?Set DOCKER_USERNAME in .env first}"
-  : "${DOCKERHUB_PAT:?Set DOCKERHUB_PAT in .env first}"
-fi
-
 echo ""
-echo "=== Installing Jenkins locally (registry=${REGISTRY}, transport=${TRANSPORT}) ==="
+echo "=== Installing Jenkins locally ==="
  
 ####################################################################################################
 # Jenkins admin credentials: asked once, then reused on every re-run.
@@ -48,16 +36,6 @@ if ! grep -q "^JENKINS_ADMIN_PASSWORD=" "${ENV_FILE}" 2>/dev/null; then
   ADMIN_PASSWORD=$(openssl rand -base64 24)
   set_env JENKINS_ADMIN_PASSWORD "${ADMIN_PASSWORD}"
   echo "Generated Jenkins admin password: ${ADMIN_PASSWORD}"
-fi
-
-####################################################################################################
-# ECR/SSM combos need AWS CLI creds -- create a local IAM user for them if Jenkins isn't on AWS already.
-####################################################################################################
-if [ "${REGISTRY}" = "ecr" ] || [ "${TRANSPORT}" = "ssm" ]; then
-  if ! TOKEN=$(get_imds_token) || [ -z "${TOKEN}" ]; then
-    source ../aws_ec2_install/aws_shared_library.sh
-    aws_prepare_local_jenkins_credentials
-  fi
 fi
 
 ####################################################################################################
@@ -142,22 +120,20 @@ sudo docker compose --env-file ../.env up -d --build controller
 echo "Waiting 15s for the Jenkins controller to start..."
 sleep 15
 
+# Update GitHub webhook with a token
+TOKEN=$(get_imds_token)
+export TOKEN
+./setup_github_webhook.sh
+ 
 echo ""
-if TOKEN=$(get_imds_token) && [ -n "${TOKEN}" ]; then
-  # Running on AWS: this is the remote step of jenkins_aws_install.sh, which
-  # prints its own accurate banner (public IP, correct next steps) once this
-  # SSH session ends -- avoid a second, misleading one with the private IP.
+if [ -n "${TOKEN}" ]; then
   echo "Jenkins controller started on this instance."
 else
   echo "=================================================="
   echo "  Jenkins ready locally : http://${JENKINS_INGRESS_IP}:8080"
   echo "  Login : ${JENKINS_ADMIN_USER} / ${JENKINS_ADMIN_PASSWORD}"
-  echo ""
-  echo "  Next steps:"
-  echo "  1. Set the GitHub Webhook (with a Cloudflare tunnel automatically)"
-  echo "     ./jenkins_install/setup_github_webhook.sh"
-  echo "  2. Run a test deployment for the combo of your choice"
-  echo "     ./test_deployments.sh <dockerhub|ecr> <ssh|ssm>"
   echo "=================================================="
 fi
+
+unset TOKEN
 echo ""

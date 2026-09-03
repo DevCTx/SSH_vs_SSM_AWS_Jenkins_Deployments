@@ -1,4 +1,3 @@
-
 # Jenkins CI/CD — Docker + JCasC + AWS
  
 **Same pipeline, four deployment strategies.** 
@@ -18,7 +17,7 @@ This repository implements the **CI/CD pipeline for a single Java application us
  
 - **One shared Jenkins library** — build/push/deploy/cleanup logic written once per registry/transport pair, never duplicated.
 - **JCasC hot-reload** — switching the active combo is a config reload, not an image rebuild.
-- **A single generic `docker-aws-agent` image** — Having the aws binary installed grants no access by itself — without a credential or an IAM role attached (see the decision table and jenkins_configs/*.yaml), any aws ... command simply fails. The extra few MB in the image carry no security cost, and a single agent to build, test, and maintain is simpler than juggling two.
+- **A single generic `docker-aws-agent` image** — Having the aws binary installed grants no access by itself — without a credential or an IAM role attached (see `jenkins_configs/*.yaml`), any aws ... command simply fails. The extra few MB in the image carry no security cost, and a single agent to build, test, and maintain is simpler than juggling two.
 - **Least privilege per combo** — roles, security groups, and credentials scoped to exactly what each combo needs.
 - **One persistent instance per combo** — created once, reused idempotently; no IP or credentials modifications.
 
@@ -125,7 +124,7 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 
 ## Quick start
 
-1. Select the **desired configuration** from the **decision table** below 
+1. Select the **desired configuration**:
     - **Jenkins on local or on AWS ?**
     - **Registry on DockerHub or AWS ECR ?**
     - **Transport via SSH or SSM protocol ?**
@@ -195,30 +194,63 @@ loads its config, and verifies the deployment):
 ./test_deployments.sh ecr ssm
 ```
 
-## Decision table
+## What each combo uses
 
->| Jenkins | Registry  | Transport | jenkins YAML file              | Jenkinsfile          |
->|---------|-----------|-----------|--------------------------------|-----------------------|
->| local   | DockerHub | SSH       | `any-dockerhub-ssh.yaml`       | `dockerhub_ssh_ec2`  |
->| local   | DockerHub | SSM       | `local-dockerhub-ssm.yaml`     | `dockerhub_ssm_ec2`  |
->| local   | ECR       | SSH       | `local-ecr-ssh.yaml`           | `ecr_ssh_ec2`        |
->| local   | ECR       | SSM       | `local-ecr-ssm.yaml`           | `ecr_ssm_ec2`        |
->| AWS     | DockerHub | SSH       | `any-dockerhub-ssh.yaml`       | `dockerhub_ssh_ec2`  |
->| AWS     | DockerHub | SSM       | `aws-dockerhub-ssm.yaml`       | `dockerhub_ssm_ec2`  |
->| AWS     | ECR       | SSH       | `aws-ecr-ssh.yaml`             | `ecr_ssh_ec2`        |
->| AWS     | ECR       | SSM       | `aws-ecr-ssm.yaml`             | `ecr_ssm_ec2`        |
+The **transport** (SSH/SSM) drives the deployment mechanism and security
+group; the **registry** (DockerHub/ECR) only drives build/push credentials
+and whether ECR IAM roles are needed. The two axes are independent.
 
-`any-dockerhub-ssh.yaml` can both covers local and AWS Jenkins because it does not use any AWS API call.
+| | **dockerhub+ssh** | **dockerhub+ssm** | **ecr+ssh** | **ecr+ssm** |
+|---|---|---|---|---|
+| Jenkinsfile | `dockerhub_ssh_ec2` | `dockerhub_ssm_ec2` | `ecr_ssh_ec2` | `ecr_ssm_ec2` |
+| Build/push credential — Jenkins **local** | `dockerhub-username` + `dockerhub-pat` | `dockerhub-username` + `dockerhub-pat` | `aws-creds` → `ecr get-login-password` | `aws-creds` → `ecr get-login-password` |
+| Build/push credential — Jenkins on **AWS** | `dockerhub-username` + `dockerhub-pat` | `dockerhub-username` + `dockerhub-pat` | `jenkins-ec2-role` → `ecr get-login-password` | `jenkins-ec2-role` → `ecr get-login-password` |
+| Deploy credential — Jenkins **local** | `app-ec2-ssh-key` | `aws-creds` → `ssm send-command` | `app-ec2-ssh-key` | `aws-creds` → `ssm send-command` |
+| Deploy credential — Jenkins on **AWS** | `app-ec2-ssh-key` | `jenkins-ec2-role` → `ssm send-command` | `app-ec2-ssh-key` | `jenkins-ec2-role` → `ssm send-command` |
+| IAM — app instance | *none* | `AmazonSSMManagedInstanceCore` | `AmazonEC2ContainerRegistryReadOnly` | both |
+| IAM — Jenkins **local** user (`jenkins-local-aws-creds`, bound to credential `aws-creds`) | *none* | `AmazonSSMFullAccess` | `AmazonEC2ContainerRegistryFullAccess` | both |
+| IAM — Jenkins on **AWS** (`jenkins-ec2-role`, shared by every combo — policies accumulate, never removed) | *none* | `AmazonSSMFullAccess` | `AmazonEC2ContainerRegistryFullAccess` | both |
+| App security group | `app-ec2-ssh-sg` (port 22 open) | `app-ec2-ssm-sg` (never port 22) | `app-ec2-ssh-sg` (port 22 open) | `app-ec2-ssm-sg` (never port 22) |
+| Deployment mechanism | `docker run` over SSH | `docker compose up` via SSM | `docker run` over SSH | `docker compose up` via SSM |
+| AWS API call from Jenkins | none | `ssm send-command` | `ecr get-login-password` / `batch-delete-image` | both |
 
+Each `aws ...` call is identical in both cases; only the location where the
+AWS CLI looks for its credentials differs. `aws-creds` injects
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as environment variables. On
+AWS, these variables are absent; the CLI then turns to the Instance
+Metadata Service (IMDS), which provides automatically generated temporary
+credentials derived from the instance's own IAM role (`jenkins-ec2-role`).
+These credentials are automatically renewed by AWS approximately every 6
+hours; nothing is static or stored, so there is no risk of leakage. The
+rest of the code remains the same in both cases.
+
+
+## Uninstall
+
+Every `*_install.sh` has a matching `*_uninstall.sh`, undoing exactly what
+its counterpart created — never more. Shared resources (an SSH key or
+security group reused by another combo, an ECR repo shared by both ECR
+combos) are left alone by default, since removing them could break a
+sibling combo still in use; each script says so explicitly when it skips
+something.
+
+```bash
+./aws_ec2_install/aws_ec2_app_uninstall.sh <dockerhub|ecr> <ssh|ssm>   # terminate that combo's app instance
+./aws_ec2_install/aws_ec2_jenkins_uninstall.sh                         # terminate the Jenkins-on-AWS instance
+./jenkins_install/jenkins_local_uninstall.sh                           # tear down the local Jenkins stack
+./jenkins_install/jenkins_aws_uninstall.sh                             # tear down Jenkins on AWS without terminating the instance
+```
 
 ## Repo structure
 
 ```
 SSH_vs_SSM_AWS_Jenkins_Deployments/
 ├── aws_ec2_install/      # EC2 install scripts: one instance per combo + optional Jenkins-on-AWS instance
-│   ├── aws_ec2_app_install.sh      # creates/reuses app-ec2-<registry>-<transport>
-│   ├── aws_ec2_jenkins_install.sh  # creates/reuses the Jenkins-on-AWS instance
-│   └── aws_shared_library.sh       # AMI lookup, security groups, IAM roles/profiles, ...
+│   ├── aws_ec2_app_install.sh       # creates/reuses app-ec2-<registry>-<transport>
+│   ├── aws_ec2_app_uninstall.sh     # terminates one combo's app instance
+│   ├── aws_ec2_jenkins_install.sh   # creates/reuses the Jenkins-on-AWS instance
+│   ├── aws_ec2_jenkins_uninstall.sh # terminates the Jenkins-on-AWS instance
+│   └── aws_shared_library.sh        # AMI lookup, security groups, IAM roles/profiles, ...
 ├── cloudflare/           # script to create a tunne for a public IP address when Jenkins is local
 ├── docs/
 │   └── architecture.svg            # diagram used in this README
@@ -232,7 +264,9 @@ SSH_vs_SSM_AWS_Jenkins_Deployments/
 │           └── static/index.html
 ├── jenkins_install/      # Jenkins install scripts on local or on AWS + webhook setup
 │   ├── jenkins_local_install.sh
+│   ├── jenkins_local_uninstall.sh
 │   ├── jenkins_aws_install.sh
+│   ├── jenkins_aws_uninstall.sh
 │   ├── setup_github_webhook.sh
 │   ├── controller/                 # jenkins controller Dockerfile + active jenkins-config.yaml
 │   └── agents/                     # base / maven / docker-aws agent Dockerfiles

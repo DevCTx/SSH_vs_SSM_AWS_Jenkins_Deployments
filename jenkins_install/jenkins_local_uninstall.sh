@@ -60,6 +60,12 @@ if aws iam get-user --user-name jenkins-local-aws-creds >/dev/null 2>&1; then
   aws iam delete-user --user-name jenkins-local-aws-creds
 fi
 
+# Kill the Cloudflare tunnel process too -- the .env cleanup below only
+# removes its PID, it never stops the process itself.
+if [ -n "${JENKINS_TUNNEL_PID:-}" ]; then
+  kill "${JENKINS_TUNNEL_PID}" 2>/dev/null || true
+fi
+
 sed -i '/^JENKINS_ADMIN_USER=/d;/^JENKINS_ADMIN_PASSWORD=/d;/^DOCKER_GID=/d;/^JENKINS_INGRESS_IP=/d;/^JENKINS_AWS_ACCESS_KEY_ID=/d;/^JENKINS_AWS_SECRET_ACCESS_KEY=/d;/^JENKINS_TUNNEL_URL=/d;/^JENKINS_TUNNEL_PID=/d;/^JENKINS_URL=/d' "${ENV_FILE}"
 
 echo ""

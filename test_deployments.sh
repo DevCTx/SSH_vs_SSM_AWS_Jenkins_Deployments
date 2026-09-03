@@ -59,6 +59,18 @@ else
 fi
 
 
+# Write the config BEFORE restarting -- credentials only apply reliably at boot.
+if [ "${REGISTRY}" = "dockerhub" ] && [ "${TRANSPORT}" = "ssh" ]; then
+  CONFIG_NAME="any-dockerhub-ssh"
+elif [ "${JENKINS_TARGET:-local}" = "aws" ]; then
+  CONFIG_NAME="aws-${REGISTRY}-${TRANSPORT}"
+else
+  CONFIG_NAME="local-${REGISTRY}-${TRANSPORT}"
+fi
+echo "=== Loading config: ${CONFIG_NAME}.yaml ==="
+cp "jenkins_configs/${CONFIG_NAME}.yaml" jenkins_install/controller/jenkins-config.yaml
+
+
 ####################################################################################################
 # Refresh the Jenkins controller: it only reads .env at creation, not on a
 # JCasC reload. Check JENKINS_TARGET (where Jenkins runs), not
@@ -88,6 +100,10 @@ else
   scp "${SSH_OPTS[@]}" "${ENV_TMP}.new" "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/.env"
   rm -f "${ENV_TMP}" "${ENV_TMP}.new"
 
+  # Push the config too, before the restart.
+  scp "${SSH_OPTS[@]}" jenkins_install/controller/jenkins-config.yaml \
+    "ec2-user@${JENKINS_EC2_IP}:${REMOTE_HOME}/jenkins_install/controller/jenkins-config.yaml"
+
   # ssh transport: also push the app key remotely (cheap to repeat).
   if [ "${TRANSPORT}" = "ssh" ]; then
     scp "${SSH_OPTS[@]}" aws_ec2_install/app-ec2-ssh-key.pem \
@@ -107,17 +123,8 @@ fi
 
 
 ####################################################################################################
-# Load the matching pipeline config BEFORE triggering the webhook
+# Clean up the other 3 combos' jobs (JCasC never removes, only adds/updates).
 ####################################################################################################
-if [ "${REGISTRY}" = "dockerhub" ] && [ "${TRANSPORT}" = "ssh" ]; then
-  CONFIG_NAME="any-dockerhub-ssh"
-elif [ "${JENKINS_TARGET:-local}" = "aws" ]; then
-  CONFIG_NAME="aws-${REGISTRY}-${TRANSPORT}"
-else
-  CONFIG_NAME="local-${REGISTRY}-${TRANSPORT}"
-fi
- 
-echo "=== Loading config: ${CONFIG_NAME}.yaml ==="
 ./jenkins_configs/reload_jenkins_config.sh "${CONFIG_NAME}.yaml"
 
 

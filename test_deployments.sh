@@ -67,7 +67,6 @@ elif [ "${JENKINS_TARGET:-local}" = "aws" ]; then
 else
   CONFIG_NAME="local-${REGISTRY}-${TRANSPORT}"
 fi
-echo ""
 echo "=== Loading config: ${CONFIG_NAME}.yaml ==="
 cp "jenkins_configs/${CONFIG_NAME}.yaml" jenkins_install/controller/jenkins-config.yaml
 
@@ -78,11 +77,9 @@ cp "jenkins_configs/${CONFIG_NAME}.yaml" jenkins_install/controller/jenkins-conf
 # get_imds_token (this script itself always runs locally).
 ####################################################################################################
 if [ "${JENKINS_TARGET:-local}" = "local" ]; then
-  echo ""
   echo "=== Refreshing the local Jenkins controller so it picks up any new instance details ==="
-  (cd jenkins_install && sudo docker compose --env-file ../.env up -d controller)
+  (cd jenkins_install && sudo docker compose --env-file ../.env up -d --force-recreate controller)
 
-  echo ""
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
     STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
@@ -90,7 +87,6 @@ if [ "${JENKINS_TARGET:-local}" = "local" ]; then
     sleep 5
   done
 else
-  echo ""
   echo "=== Refreshing the Jenkins controller on AWS so it picks up any new instance details ==="
   JENKINS_EC2_KEY="aws_ec2_install/jenkins-ec2-ssh-key.pem"
   REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
@@ -115,9 +111,8 @@ else
   fi
 
   ssh "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
-    "cd ${REMOTE_HOME}/jenkins_install && sudo docker compose --env-file ../.env up -d controller"
+    "cd ${REMOTE_HOME}/jenkins_install && sudo docker compose --env-file ../.env up -d --force-recreate controller"
 
-  echo ""
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
     STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_EC2_IP}:8080/login" 2>/dev/null || echo "000")
@@ -147,7 +142,6 @@ get_latest_tag() {
   fi
 }
 
-echo ""
 echo "=== Checking the current tag before triggering the pipeline ==="
 BEFORE_TAG=$(get_latest_tag)
 echo "Current tag: ${BEFORE_TAG:-<none>}"
@@ -218,9 +212,7 @@ for i in $(seq 1 12); do
   fi
   sleep 10
 done
-
  
-echo ""
 echo "Running image on EC2: ${RUNNING_IMAGE}"
  
 if [[ "${RUNNING_IMAGE}" == *":${AFTER_TAG}" ]]; then

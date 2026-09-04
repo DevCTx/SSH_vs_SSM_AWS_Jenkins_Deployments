@@ -161,7 +161,7 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 
 4. **Repeat for each combo you want to test.**
 
-**All the scripts apply exactly the IAM/SSH/SSM permissions needed for the chosen combo, no more, no less (least-privilege principle).**
+>**All the scripts apply exactly the IAM/SSH/SSM permissions needed for the chosen combo, no more, no less (least-privilege principle).**
 
 
 ### Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on local and a registry on dockerhub, using SSH protocol (port 22 opened) 

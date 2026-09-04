@@ -82,7 +82,7 @@ if [ "${JENKINS_TARGET:-local}" = "local" ]; then
 
   echo "Waiting for Jenkins to finish restarting..."
   for i in $(seq 1 24); do
-    STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${JENKINS_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
+    STATUS=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${LOCAL_INGRESS_IP}:8080/login" 2>/dev/null || echo "000")
     [ "${STATUS}" = "200" ] && break
     sleep 5
   done

@@ -91,6 +91,7 @@ fi
 
 set_env DOCKER_GID "$(stat -c '%g' /var/run/docker.sock)"
 set_env JENKINS_INGRESS_IP "$(hostname -I | awk '{print $1}')"
+set_env LOCAL_INGRESS_IP "$(hostname -I | awk '{print $1}')"
 
 ####################################################################################################
 # Build agents. --env-file ../.env: sudo drops DOCKER_GID, so Compose needs it explicitly.

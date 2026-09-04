@@ -1,8 +1,9 @@
 #!/bin/bash
 #
 # jenkins_aws_install.sh
-# - Transfers env_install/, jenkins_install/, jenkins_configs/ and .env
-#   to the EC2 instance created by aws_ec2_install/aws_ec2_jenkins_install.sh
+# - Creates the Jenkins EC2 instance if needed (idempotent -- reuses it if
+#   it already exists, see aws_ec2_install/aws_ec2_jenkins_install.sh)
+# - Transfers env_install/, jenkins_install/, jenkins_configs/ and .env to it
 # - then runs jenkins_local_install.sh remotely, which also sets up the
 #   GitHub webhook once Jenkins is up.
 #
@@ -14,9 +15,11 @@
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
 
+../aws_ec2_install/aws_ec2_jenkins_install.sh
+
 source ../env_install/env_shared_library.sh
-: "${JENKINS_EC2_IP:?Run aws_ec2_install/aws_ec2_jenkins_install.sh first}"
-: "${JENKINS_EC2_ID:?Run aws_ec2_install/aws_ec2_jenkins_install.sh first}"
+: "${JENKINS_EC2_IP:?aws_ec2_jenkins_install.sh did not set JENKINS_EC2_IP}"
+: "${JENKINS_EC2_ID:?aws_ec2_jenkins_install.sh did not set JENKINS_EC2_ID}"
 
 # Internal use only (this script already cd'd into jenkins_install/).
 JENKINS_EC2_KEY="../aws_ec2_install/jenkins-ec2-ssh-key.pem"

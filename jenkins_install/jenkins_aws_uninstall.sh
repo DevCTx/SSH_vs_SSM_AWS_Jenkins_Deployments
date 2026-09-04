@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # jenkins_aws_uninstall.sh
-# Stops and removes the Jenkins stack running ON the AWS instance, without
-# terminating the instance itself (see aws_ec2_jenkins_uninstall.sh for that).
-# Useful to free it up for another purpose while keeping it alive.
+# Mirrors jenkins_aws_install.sh: uninstalls the Jenkins stack ON the AWS
+# instance, then terminates that instance too (via aws_ec2_jenkins_uninstall.sh).
+# One command undoes what one command created.
 #
 # Usage:
-#   ./jenkins_aws_uninstall.sh            # keep the jenkins_home volume
-#   ./jenkins_aws_uninstall.sh --purge    # also delete the volume (jobs, history)
+#   ./jenkins_aws_uninstall.sh            # keep the jenkins_home volume before terminating
+#   ./jenkins_aws_uninstall.sh --purge    # also delete the volume (jobs, history) first
 #
 set -e
 cd "$(dirname "$0")"    # Runs the script into this folder
@@ -20,7 +20,7 @@ REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
 SSH_OPTS=(-o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}")
 
 echo ""
-echo "=== Uninstalling Jenkins on ${JENKINS_EC2_IP} (instance stays up) ==="
+echo "=== Uninstalling Jenkins on ${JENKINS_EC2_IP} ==="
 
 PURGE_FLAG=""
 [ "${1:-}" = "--purge" ] && PURGE_FLAG="--purge"
@@ -28,9 +28,11 @@ PURGE_FLAG=""
 ssh "${SSH_OPTS[@]}" "ec2-user@${JENKINS_EC2_IP}" \
   "${REMOTE_HOME}/jenkins_install/jenkins_local_uninstall.sh ${PURGE_FLAG}"
 
-sed -i '/^JENKINS_INGRESS_IP=/d;/^JENKINS_URL=/d;/^JENKINS_ADMIN_USER=/d;/^JENKINS_ADMIN_PASSWORD=/d' "${ENV_FILE}"
+sed -i '/^JENKINS_INGRESS_IP=/d;/^JENKINS_URL=/d;/^JENKINS_ADMIN_USER=/d;/^JENKINS_ADMIN_PASSWORD=/d;/^JENKINS_TARGET=/d' "${ENV_FILE}"
+
+# Software uninstalled -- now terminate the instance itself too.
+../aws_ec2_install/aws_ec2_jenkins_uninstall.sh
 
 echo ""
-echo "✅ Jenkins uninstalled on ${JENKINS_EC2_IP}. The instance itself is still running --"
-echo "   use aws_ec2_install/aws_ec2_jenkins_uninstall.sh to terminate it too."
+echo "✅ Jenkins fully uninstalled from AWS (instance terminated)."
 echo ""

@@ -51,7 +51,7 @@ echo "Deleting SSH key pair ${JENKINS_EC2_KEY}..."
 aws ec2 delete-key-pair --key-name "${JENKINS_EC2_KEY}" 2>/dev/null || true
 rm -f "${JENKINS_EC2_KEY}.pem"
 
-sed -i '/^JENKINS_EC2_ID=/d;/^JENKINS_EC2_IP=/d;/^JENKINS_EC2_SG_ID=/d' "${ENV_FILE}"
+sed -i '/^JENKINS_EC2_ID=/d;/^JENKINS_EC2_IP=/d;/^JENKINS_EC2_SG_ID=/d;/^JENKINS_TARGET=/d' "${ENV_FILE}"
 
 echo ""
 echo "✅ Jenkins-on-AWS instance uninstalled."

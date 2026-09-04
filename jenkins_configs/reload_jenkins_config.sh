@@ -40,6 +40,7 @@ fi
 if [ "${JENKINS_TARGET:-local}" = "aws" ]; then
   JENKINS_EC2_KEY="../aws_ec2_install/jenkins-ec2-ssh-key.pem"
   REMOTE_HOME="/home/ec2-user/jenkins-ci-cd"
+  echo ""
   echo "=== Jenkins runs on AWS: pushing the config file to ${JENKINS_EC2_IP} ==="
   scp -o StrictHostKeyChecking=no -i "${JENKINS_EC2_KEY}" \
     ../jenkins_install/controller/jenkins-config.yaml \

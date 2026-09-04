@@ -164,7 +164,7 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 **All the scripts apply exactly the IAM/SSH/SSM permissions needed for the chosen combo, no more, no less (least-privilege principle).**
 
 
-## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on local and a registry on dockerhub, using SSH protocol (port 22 opened) 
+### Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on local and a registry on dockerhub, using SSH protocol (port 22 opened) 
 
 ```bash
 ./jenkins_install/jenkins_local_install.sh
@@ -174,7 +174,7 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 ![local-jenkins-dockerhub-ssh-ec2-deploy](./docs/local-jenkins-dockerhub-ssh-ec2-deploy.drawio.png)
 
 
-## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on AWS and a registry on AWS ECR, using SSM protocol (No port 22 opened)
+### Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on AWS and a registry on AWS ECR, using SSM protocol (No port 22 opened)
 
 ```bash
 ./jenkins_install/jenkins_aws_install.sh

@@ -156,6 +156,27 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 
 **All the scripts apply exactly the IAM/SSH/SSM permissions needed for the chosen combo, no more, no less (least-privilege principle).**
 
+
+## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on local and a registry on dockerhub, using SSH protocol (port 22 opened)
+
+```bash
+./jenkins_install/jenkins_local_install.sh
+./test_deployments.sh dockerhub ssh
+```
+
+![local-jenkins-dockerhub-ssh-ec2-deploy](./docs/local-jenkins-dockerhub-ssh-ec2-deploy.drawio.png)
+
+
+## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on AWS and a registry on AWS ECR, using SSM protocol (No port 22 opened)
+
+```bash
+./jenkins_install/jenkins_aws_install.sh
+./test_deployments.sh ecr ssm
+```
+
+![AWS-Jenkins-ecr-ssm-ec2-deploy](./docs/AWS-Jenkins-ecr-ssm-ec2-deploy.drawio.png)
+
+
 ## What each combo uses
 
 The **transport** (SSH/SSM) drives the deployment mechanism and security group; 
@@ -185,25 +206,6 @@ With Jenkins local, `aws-creds` uses environment variables created for this purp
 With Jenkins on AWS, these variables aren't needed — the AWS CLI queries the instance directly, internally, which provides temporary access (renewed roughly
 every 6 hours, never stored) generated from the IAM role.
 
-
-## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on local and a registry on dockerhub, using SSH protocol (port 22 opened)
-
-```bash
-./jenkins_install/jenkins_local_install.sh
-./test_deployments.sh dockerhub ssh
-```
-
-![local-jenkins-dockerhub-ssh-ec2-deploy](./docs/local-jenkins-dockerhub-ssh-ec2-deploy.drawio.png)
-
-
-## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on AWS and a registry on AWS ECR, using SSM protocol (No port 22 opened)
-
-```bash
-./jenkins_install/jenkins_aws_install.sh
-./test_deployments.sh ecr ssm
-```
-
-![AWS-Jenkins-ecr-ssm-ec2-deploy](./docs/AWS-Jenkins-ecr-ssm-ec2-deploy.drawio.png)
 
 ## Uninstall
 

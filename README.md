@@ -125,19 +125,24 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 
 1. **Install Jenkins** :
    - **Locally**: 
+
       `jenkins_install/jenkins_local_install.sh`
+
          - Installs Docker if missing, 
          - builds the 3 agents, 
          - starts the controller with a neutral default config, 
          - opens a Cloudflare tunnel, 
          - and sets the GitHub webhook.
    - **On AWS**: 
+
       `jenkins_install/jenkins_aws_install.sh`
+
          - Creates the Jenkins EC2 instance first if it doesn't exist yet, 
          - transfers the repo to it, 
          - then runs the same install remotely.
 
 2. **If both are installed, pick which one is active**:
+      
       `./switch_jenkins.sh <local|aws>`
 
 3. **Pick the desired configuration** :
@@ -145,7 +150,9 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
     - **Transport**: SSH or SSM protocol?
 
    - Then run the test for a combo: 
+   
       `./test_deployments.sh <dockerhub|ecr> <ssh|ssm>`
+   
          - Creates that combo's app EC2 instance if needed, 
          - creates the local IAM user if that combo needs AWS credentials and Jenkins is local, 
          - writes and loads the matching JCasC config, 
@@ -157,7 +164,7 @@ Test: `aws sts get-caller-identity` — expect a JSON block with your `UserId`, 
 **All the scripts apply exactly the IAM/SSH/SSM permissions needed for the chosen combo, no more, no less (least-privilege principle).**
 
 
-## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on local and a registry on dockerhub, using SSH protocol (port 22 opened)
+## Exemple : Testing deployment of the the Java App to AWS EC2 instance via Jenkins on local and a registry on dockerhub, using SSH protocol (port 22 opened) 
 
 ```bash
 ./jenkins_install/jenkins_local_install.sh
